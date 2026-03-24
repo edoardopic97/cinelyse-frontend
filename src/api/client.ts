@@ -42,6 +42,7 @@ export interface MovieResult {
   Backdrop?: string;
   Tagline?: string;
   Status?: string;
+  _lightweight?: boolean;
 }
 
 export interface SearchResponse {
@@ -49,6 +50,12 @@ export interface SearchResponse {
   movies: MovieResult[];
   count: number;
   cached: boolean;
+}
+
+export async function fetchMovieDetails(tmdbID: number, type: string = 'movie'): Promise<MovieResult> {
+  const mediaType = type === 'series' || type === 'TV Series' ? 'tv' : 'movie';
+  const res = await api.get(`/api/movie/details?id=${tmdbID}&type=${mediaType}`);
+  return res.data;
 }
 
 export async function searchMovies(
@@ -63,7 +70,7 @@ export async function searchMovies(
     enrichedQuery += `. Do NOT include any of these titles I already have: ${exclude.join(', ')}`;
   }
   const res = await api.post('/api/trpc/movies.search', {
-    json: { query: enrichedQuery, category, uid: uid || null, aiMode },
+    json: { query: enrichedQuery, category, uid: uid || null, aiMode, tzOffset: -new Date().getTimezoneOffset() },
   });
 
   const raw = res.data;
@@ -75,6 +82,36 @@ export async function searchMovies(
     data;
   if (payload?.movies) return payload;
   throw new Error('Unexpected API response format');
+}
+
+export interface WatchProvider {
+  id: number;
+  name: string;
+  logo: string;
+  type: string;
+}
+
+export async function fetchTrailer(tmdbID: number, type: string = 'movie'): Promise<string | null> {
+  const mt = type === 'series' || type === 'TV Series' ? 'tv' : 'movie';
+  const res = await api.get(`/api/movie/trailer?id=${tmdbID}&type=${mt}`);
+  return res.data.key || null;
+}
+
+export async function fetchProviders(tmdbID: number, type: string = 'movie'): Promise<{ providers: WatchProvider[]; link: string }> {
+  const mt = type === 'series' || type === 'TV Series' ? 'tv' : 'movie';
+  const res = await api.get(`/api/movie/providers?id=${tmdbID}&type=${mt}`);
+  return res.data;
+}
+
+export async function fetchSimilar(tmdbID: number, type: string = 'movie'): Promise<MovieResult[]> {
+  const mt = type === 'series' || type === 'TV Series' ? 'tv' : 'movie';
+  const res = await api.get(`/api/movie/similar?id=${tmdbID}&type=${mt}`);
+  return res.data.movies || [];
+}
+
+export async function fetchTrending(): Promise<{ movies: MovieResult[]; tv: MovieResult[] }> {
+  const res = await api.get('/api/movie/trending');
+  return res.data;
 }
 
 export default api;

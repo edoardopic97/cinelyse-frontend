@@ -102,10 +102,30 @@ export function subscribeToFriendRequests(userId: string, callback: (reqs: Frien
 
 export async function acceptFriendRequest(userId: string, requestId: string, fromUserId: string): Promise<void> {
   await deleteDoc(doc(db, 'users', userId, 'friendRequests', requestId));
-  await setDoc(doc(db, 'users', userId, 'friends', fromUserId), { userId: fromUserId, addedAt: Timestamp.now() });
-  await setDoc(doc(db, 'users', fromUserId, 'friends', userId), { userId, addedAt: Timestamp.now() });
-  const profile = await getDoc(doc(db, 'users', userId));
-  const name = profile.exists() ? profile.data().displayName || 'Someone' : 'Someone';
+  const [mySnap, theirSnap] = await Promise.all([
+    getDoc(doc(db, 'users', userId)),
+    getDoc(doc(db, 'users', fromUserId)),
+  ]);
+  const myData = mySnap.exists() ? mySnap.data() : {} as any;
+  const theirData = theirSnap.exists() ? theirSnap.data() : {} as any;
+  const now = Timestamp.now();
+  await Promise.all([
+    setDoc(doc(db, 'users', userId, 'friends', fromUserId), {
+      userId: fromUserId,
+      displayName: theirData.displayName || '',
+      photoURL: theirData.photoURL || '',
+      totalSearches: theirData.totalSearches || 0,
+      addedAt: now,
+    }),
+    setDoc(doc(db, 'users', fromUserId, 'friends', userId), {
+      userId,
+      displayName: myData.displayName || '',
+      photoURL: myData.photoURL || '',
+      totalSearches: myData.totalSearches || 0,
+      addedAt: now,
+    }),
+  ]);
+  const name = myData.displayName || 'Someone';
   await addNotification(fromUserId, 'friend_accepted', `${name} accepted your friend request`);
 }
 
@@ -116,6 +136,28 @@ export async function rejectFriendRequest(userId: string, requestId: string): Pr
 export async function getFriends(userId: string): Promise<string[]> {
   const snap = await getDocs(collection(db, 'users', userId, 'friends'));
   return snap.docs.map(d => d.data().userId);
+}
+
+export interface FriendSummary {
+  userId: string;
+  displayName: string;
+  photoURL: string;
+  totalSearches: number;
+  addedAt?: Timestamp;
+}
+
+export async function getEnrichedFriends(userId: string): Promise<FriendSummary[]> {
+  const snap = await getDocs(collection(db, 'users', userId, 'friends'));
+  return snap.docs.map(d => {
+    const data = d.data();
+    return {
+      userId: data.userId,
+      displayName: data.displayName || '',
+      photoURL: data.photoURL || '',
+      totalSearches: data.totalSearches || 0,
+      addedAt: data.addedAt,
+    };
+  });
 }
 
 export async function searchUserByUsername(username: string) {
@@ -247,6 +289,22 @@ export function subscribeToMovieList(userId: string, listType: 'watched' | 'toWa
   });
 }
 
+export function subscribeToAllMovies(
+  userId: string,
+  callbacks: {
+    watched: (movies: MovieActivity[]) => void;
+    toWatch: (movies: MovieActivity[]) => void;
+    favorite: (movies: MovieActivity[]) => void;
+  },
+): Unsubscribe {
+  return onSnapshot(collection(db, 'users', userId, 'movies'), (snap) => {
+    const all = snap.docs.map(d => d.data() as MovieActivity);
+    callbacks.watched(all.filter(m => m.watched));
+    callbacks.toWatch(all.filter(m => m.toWatch));
+    callbacks.favorite(all.filter(m => m.favorite));
+  });
+}
+
 export async function getMovieListPaginated(
   userId: string,
   listType: 'watched' | 'toWatch' | 'favorite',
@@ -270,6 +328,16 @@ export async function updateUserProfile(userId: string, updates: Partial<UserPro
     await setUserProfile(userId, updates);
   } else {
     await updateDoc(ref, { ...updates, updatedAt: Timestamp.now() });
+  }
+  // Fan out displayName/photoURL changes to friends' denormalized docs
+  const fanOut: Record<string, any> = {};
+  if (updates.displayName !== undefined) fanOut.displayName = updates.displayName;
+  if (updates.photoURL !== undefined) fanOut.photoURL = updates.photoURL;
+  if (Object.keys(fanOut).length > 0) {
+    const friendsSnap = await getDocs(collection(db, 'users', userId, 'friends'));
+    await Promise.all(friendsSnap.docs.map(d =>
+      setDoc(doc(db, 'users', d.id, 'friends', userId), fanOut, { merge: true })
+    ));
   }
 }
 
@@ -310,14 +378,21 @@ export async function deleteNotification(userId: string, notifId: string): Promi
 }
 
 export async function addNotification(userId: string, type: AppNotification['type'], message: string, extra?: Record<string, any>): Promise<void> {
+  const { auth } = await import('./firebase');
+  const token = await auth.currentUser?.getIdToken().catch(() => null);
+  if (token) {
+    try {
+      const res = await fetch('https://backend-eta-ochre-46.vercel.app/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ userId, type, message, extra }),
+      });
+      if (res.ok) return; // Backend wrote the doc + sent push
+    } catch {}
+  }
+  // Fallback: write notification doc client-side (push won't fire, but in-app notif is preserved)
   const ref = doc(collection(db, 'users', userId, 'notifications'));
   await setDoc(ref, { id: ref.id, type, message, read: false, createdAt: Timestamp.now(), ...extra });
-  // Trigger push notification
-  fetch('https://backend-eta-ochre-46.vercel.app/api/notify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, title: 'CINELYSE', body: message }),
-  }).catch(() => {});
 }
 
 export async function findUsersByEmails(emails: string[], excludeUid: string): Promise<UserProfile[]> {
@@ -341,7 +416,14 @@ export async function incrementSearchCount(userId: string): Promise<void> {
   const ref = doc(db, 'users', userId);
   const snap = await getDoc(ref);
   const current = snap.exists() ? (snap.data().totalSearches || 0) : 0;
-  await setDoc(ref, { totalSearches: current + 1, updatedAt: Timestamp.now() }, { merge: true });
+  const newCount = current + 1;
+  await setDoc(ref, { totalSearches: newCount, updatedAt: Timestamp.now() }, { merge: true });
+  // Fan out to all friends' denormalized docs
+  const friendsSnap = await getDocs(collection(db, 'users', userId, 'friends'));
+  const updates = friendsSnap.docs.map(d =>
+    setDoc(doc(db, 'users', d.id, 'friends', userId), { totalSearches: newCount }, { merge: true })
+  );
+  await Promise.all(updates);
 }
 
 export async function getSearchCount(userId: string): Promise<number> {

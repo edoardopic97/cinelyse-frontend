@@ -7,6 +7,9 @@ import { getGenreColor } from '../theme/genreColors';
 import { useAuth } from '../contexts/AuthContext';
 import { removeMovieFromWatched, removeMovieFromToWatch, removeMovieFromFavorites, setMovieActivity, type MovieActivity } from '../lib/firestore';
 import MovieActivityButtons, { type MovieData } from './MovieActivityButtons';
+import SimilarMovies from './SimilarMovies';
+import WatchProviders from './WatchProviders';
+import TrailerButton from './TrailerButton';
 
 interface Props {
   movie: MovieActivity | null;
@@ -74,11 +77,16 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false }: 
                 </View>
               </View>
             )}
+            {movie.tmdbID && <TrailerButton tmdbID={movie.tmdbID} type={movie.type} />}
+            {movie.tmdbID && <WatchProviders tmdbID={movie.tmdbID} type={movie.type} />}
+
             {movie.tmdbID && (
               <TouchableOpacity style={s.imdbLink} onPress={() => Linking.openURL(`https://www.themoviedb.org/${movie.type === 'series' ? 'tv' : 'movie'}/${movie.tmdbID}`)}>
                 <Ionicons name="open-outline" size={14} color={colors.gold} /><Text style={s.imdbText}>View on TMDB</Text>
               </TouchableOpacity>
             )}
+
+            {movie.tmdbID && <SimilarMovies tmdbID={movie.tmdbID} type={movie.type} />}
 
             {readOnly && user?.uid && (
               <View style={s.activitySection}>

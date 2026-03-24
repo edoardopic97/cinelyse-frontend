@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, Image, TouchableOpacity, StyleSheet, Dimensions, Modal,
-  ScrollView, Linking, Share,
+  ScrollView, Linking, Share, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { getGenreColor } from '../theme/genreColors';
-import type { MovieResult } from '../api/client';
+import { fetchMovieDetails, type MovieResult } from '../api/client';
 import MovieActivityButtons from './MovieActivityButtons';
+import SimilarMovies from './SimilarMovies';
+import WatchProviders from './WatchProviders';
+import TrailerButton from './TrailerButton';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = (SCREEN_W - 48 - 16) / 3;
@@ -23,11 +26,26 @@ export default function MovieCard({ movie, allMovies = [], currentIndex = 0 }: P
   const insets = useSafeAreaInsets();
   const [expanded, setExpanded] = useState(false);
   const [displayIndex, setDisplayIndex] = useState(currentIndex);
+  const [detailsCache, setDetailsCache] = useState<Record<number, MovieResult>>({});
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
-  const current = expanded && allMovies.length > 0 ? allMovies[displayIndex] : movie;
+  const rawCurrent = expanded && allMovies.length > 0 ? allMovies[displayIndex] : movie;
+  const current = (rawCurrent.tmdbID && detailsCache[rawCurrent.tmdbID]) || rawCurrent;
+  const isLightweight = !!current._lightweight;
   const rating = parseFloat(current.tmdbRating || '0');
   const genres = current.Genre ? current.Genre.split(',').map(g => g.trim()) : [];
   const hasPoster = current.Poster && current.Poster !== 'N/A';
+
+  // Lazy-load details when modal is open and current is lightweight
+  useEffect(() => {
+    if (!expanded || !rawCurrent._lightweight || !rawCurrent.tmdbID) return;
+    if (detailsCache[rawCurrent.tmdbID]) return;
+    setLoadingDetails(true);
+    fetchMovieDetails(rawCurrent.tmdbID, rawCurrent.Type || 'movie')
+      .then(details => setDetailsCache(prev => ({ ...prev, [rawCurrent.tmdbID!]: details })))
+      .catch(() => {})
+      .finally(() => setLoadingDetails(false));
+  }, [expanded, rawCurrent.tmdbID]);
 
   const goNext = () => { if (displayIndex < allMovies.length - 1) setDisplayIndex(displayIndex + 1); };
   const goPrev = () => { if (displayIndex > 0) setDisplayIndex(displayIndex - 1); };
@@ -82,6 +100,12 @@ export default function MovieCard({ movie, allMovies = [], currentIndex = 0 }: P
 
             {/* Info */}
             <View style={s.info}>
+              {loadingDetails && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <ActivityIndicator size="small" color={colors.red} />
+                  <Text style={{ color: colors.muted, fontSize: 13 }}>Loading details…</Text>
+                </View>
+              )}
               {(current.Type === 'series' || current.Type === 'TV Series') && (
                 <View style={s.tvBadge}>
                   <Ionicons name="tv-outline" size={10} color={colors.red} />
@@ -92,7 +116,7 @@ export default function MovieCard({ movie, allMovies = [], currentIndex = 0 }: P
                 <Text style={[s.title, { flex: 1 }]}>{current.Title}</Text>
                 <TouchableOpacity style={s.shareBtn} onPress={() => {
                   const r = parseFloat(current.tmdbRating || '0');
-                  const url = current.tmdbID ? `https://backend-eta-ochre-46.vercel.app/movie/${current.tmdbID}` : '';
+                  const url = current.tmdbID ? `https://backend-eta-ochre-46.vercel.app/movie/${current.tmdbID}${current.Type === 'series' ? '?type=tv' : ''}` : '';
                   const lines = [`🎬 ${current.Title}${current.Year ? ` (${current.Year})` : ''}`];
                   if (r > 0) lines.push(`⭐ ${r.toFixed(1)} TMDB`);
                   if (current.Genre && current.Genre !== 'N/A') lines.push(current.Genre);
@@ -175,6 +199,9 @@ export default function MovieCard({ movie, allMovies = [], currentIndex = 0 }: P
               )}
 
 
+              {current.tmdbID && <TrailerButton tmdbID={current.tmdbID} type={current.Type} />}
+              {current.tmdbID && <WatchProviders tmdbID={current.tmdbID} type={current.Type} />}
+
               {/* Activity buttons */}
               <View style={s.activitySection}>
                 <Text style={s.detailLabel}>Your Activity</Text>
@@ -193,6 +220,9 @@ export default function MovieCard({ movie, allMovies = [], currentIndex = 0 }: P
                   country: current.Country !== 'N/A' ? current.Country : undefined,
                   rated: current.Rated !== 'N/A' ? current.Rated : undefined,
                   type: current.Type,
+                  tmdbID: current.tmdbID,
+                  backdrop: current.Backdrop,
+                  tagline: current.Tagline,
                 }} />
               </View>
 
@@ -202,6 +232,8 @@ export default function MovieCard({ movie, allMovies = [], currentIndex = 0 }: P
                   <Text style={s.imdbText}>View on TMDB</Text>
                 </TouchableOpacity>
               )}
+
+              {current.tmdbID && <SimilarMovies tmdbID={current.tmdbID} type={current.Type} />}
             </View>
           </ScrollView>
         </View>

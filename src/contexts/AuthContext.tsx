@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signOut, deleteUser, type User } from 'firebase/auth';
+import { onAuthStateChanged, signOut, deleteUser, reauthenticateWithCredential, EmailAuthProvider, GoogleAuthProvider, reauthenticateWithPopup, type User } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { getUserProfile, setUserProfile, deleteUserData } from '../lib/firestore';
 
@@ -8,7 +8,7 @@ interface AuthContextType {
   profile: any;
   loading: boolean;
   logout: () => Promise<void>;
-  deleteAccount: () => Promise<void>;
+  deleteAccount: (password?: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -73,11 +73,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
   };
 
-  const deleteAccount = async () => {
+  const deleteAccount = async (password?: string) => {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
+    const isGoogle = auth.currentUser.providerData?.some(p => p.providerId === 'google.com');
+    // Re-authenticate before deletion
+    if (isGoogle) {
+      const { GoogleSignin } = await import('@react-native-google-signin/google-signin');
+      const { idToken } = await GoogleSignin.signIn();
+      const credential = GoogleAuthProvider.credential(idToken);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+    } else if (password && auth.currentUser.email) {
+      const credential = EmailAuthProvider.credential(auth.currentUser.email, password);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+    } else {
+      throw new Error('Password required');
+    }
     await deleteUserData(uid);
-    await deleteUser(auth.currentUser);
+    await deleteUser(auth.currentUser!);
     setProfile(null);
   };
 

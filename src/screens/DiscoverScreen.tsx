@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme/colors';
-import { searchMovies, type MovieResult } from '../api/client';
+import { searchMovies, fetchTrending, type MovieResult } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import { useCredits } from '../hooks/useCredits';
 import { getSearchCount, acceptFriendRequest, rejectFriendRequest, deleteNotification } from '../lib/firestore';
@@ -75,20 +75,6 @@ function PremiumPicksSection({ onUnlock }: { onUnlock?: () => void }) {
 
   return (
     <View style={p.wrapper}>
-      {/* section header */}
-      <View style={p.header}>
-        <View>
-          <Text style={p.headerTitle}>Picked for you</Text>
-          <Text style={p.headerSub}>Based on your taste</Text>
-        </View>
-        <View style={p.aiBadge}>
-          <Text style={p.aiStar}>✦</Text>
-          <Text style={p.aiBadgeText}>AI</Text>
-        </View>
-      </View>
-
-      <View style={p.divider} />
-
       {/* blurred ghost grid + overlay in one container */}
       <View style={p.gridContainer}>
         {/* ghost cards — visually blurred via opacity + overlay */}
@@ -162,6 +148,18 @@ export default function DiscoverScreen() {
   const [lastQuery, setLastQuery] = useState('');
   const [loadingMore, setLoadingMore] = useState(false);
   const [aiMode, setAiMode] = useState(true);
+  const [trendingMovies, setTrendingMovies] = useState<MovieResult[]>([]);
+  const [trendingTV, setTrendingTV] = useState<MovieResult[]>([]);
+  const [trendingLoading, setTrendingLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    setTrendingLoading(true);
+    fetchTrending()
+      .then(({ movies, tv }) => { setTrendingMovies(movies); setTrendingTV(tv); })
+      .catch(() => {})
+      .finally(() => setTrendingLoading(false));
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -225,7 +223,10 @@ export default function DiscoverScreen() {
         setAllResults(movies);
         setResults(movies);
       } catch (err: any) {
-        setError(err?.message || 'Search failed');
+        const msg = err?.response?.status === 429
+          ? `Daily search limit reached. Try again tomorrow!`
+          : (err?.message || 'Search failed');
+        setError(msg);
         setAllResults([]);
         setResults([]);
       } finally {
@@ -465,9 +466,42 @@ export default function DiscoverScreen() {
           )}
         </View>
 
-        {/* ── Premium personalised picks (static, no scroll) ──────────────── */}
+        {/* ── Bottom section: Premium (AI) or Trending (Title Search) ── */}
         <View style={{ flex: 1, paddingHorizontal: 22 }}>
-          <PremiumPicksSection onUnlock={() => { /* TODO: open paywall */ }} />
+          {aiMode ? (
+            <PremiumPicksSection onUnlock={() => { /* TODO: open paywall */ }} />
+          ) : trendingLoading ? (
+            <ActivityIndicator color={colors.red} style={{ marginTop: 30 }} />
+          ) : (
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+              {trendingMovies.length > 0 && (
+                <View style={{ marginBottom: 20 }}>
+                  <View style={s.trendingHeader}>
+                    <Ionicons name="flame" size={16} color={colors.red} />
+                    <Text style={s.trendingTitle}>Trending Movies Today</Text>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                    {trendingMovies.map((m, i) => (
+                      <MovieCard key={m.tmdbID || i} movie={m} allMovies={trendingMovies} currentIndex={i} />
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+              {trendingTV.length > 0 && (
+                <View>
+                  <View style={s.trendingHeader}>
+                    <Ionicons name="flame" size={16} color={colors.red} />
+                    <Text style={s.trendingTitle}>Trending TV Today</Text>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                    {trendingTV.map((m, i) => (
+                      <MovieCard key={m.tmdbID || i} movie={m} allMovies={trendingTV} currentIndex={i} />
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </ScrollView>
+          )}
         </View>
 
         <SharedMovieModal />
@@ -719,7 +753,7 @@ const p = StyleSheet.create({
     backgroundColor: 'rgba(13,2,4,0.80)',
     borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 24, paddingHorizontal: 20,
+    paddingVertical: 16, paddingHorizontal: 20,
     gap: 10,
   },
   lockCircle: {
@@ -826,6 +860,8 @@ const s = StyleSheet.create({
   historyDropdown: { width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderTopWidth: 0, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, marginTop: -12, paddingTop: 4, marginBottom: 16 },
   historyItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
   historyText: { color: colors.muted, fontSize: 14, fontWeight: '500' },
+  trendingHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  trendingTitle: { color: colors.white, fontSize: 15, fontWeight: '700' },
   notifModal: { flex: 1, backgroundColor: colors.dark },
   notifHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' },
   notifTitle: { color: colors.white, fontSize: 17, fontWeight: '700' },

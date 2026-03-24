@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { getGenreColor } from '../theme/genreColors';
 import { useAuth } from '../contexts/AuthContext';
-import { subscribeToMovieList, getUserStats, getSearchCount, getFriends, type MovieActivity } from '../lib/firestore';
+import { subscribeToAllMovies, getUserStats, getSearchCount, getFriends, type MovieActivity } from '../lib/firestore';
 import { sortMovies, filterByGenre, searchByTitle, getUniqueGenres } from '../lib/movieUtils';
 import EditProfileModal from '../components/EditProfileModal';
 import ProfileMovieModal from '../components/ProfileMovieModal';
@@ -52,13 +52,15 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (!user?.uid) return;
-    const u1 = subscribeToMovieList(user.uid, 'watched', setWatched);
-    const u2 = subscribeToMovieList(user.uid, 'toWatch', setToWatch);
-    const u3 = subscribeToMovieList(user.uid, 'favorite', setFavs);
+    const unsub = subscribeToAllMovies(user.uid, {
+      watched: setWatched,
+      toWatch: setToWatch,
+      favorite: setFavs,
+    });
     getUserStats(user.uid).then(setStats).catch(() => {});
     getSearchCount(user.uid).then(setSearchCount).catch(() => {});
     getFriends(user.uid).then(f => setFriendsCount(f.length)).catch(() => {});
-    return () => { u1(); u2(); u3(); };
+    return unsub;
   }, [user?.uid]);
 
   // Refresh stats when lists change

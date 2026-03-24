@@ -12,10 +12,10 @@ import { getGenreColor } from '../theme/genreColors';
 import { useAuth } from '../contexts/AuthContext';
 import {
   getFriendRequests, subscribeToFriendRequests, acceptFriendRequest, rejectFriendRequest,
-  getFriends, getUserProfile, searchUserByUsername, sendFriendRequest,
+  getEnrichedFriends, getUserProfile, searchUserByUsername, sendFriendRequest,
   areFriends, hasPendingRequest, getUserStats, getMovieListPaginated,
-  findUsersByEmails, getSearchCount,
-  type FriendRequest, type UserProfile, type MovieActivity,
+  findUsersByEmails, getSearchCount, getFriends,
+  type FriendRequest, type UserProfile, type MovieActivity, type FriendSummary,
 } from '../lib/firestore';
 import ProfileRing, { getTier, TIER_META } from '../components/ProfileRing';
 import ProfileMovieModal from '../components/ProfileMovieModal';
@@ -26,7 +26,7 @@ export default function FriendsScreen() {
   const insets = useSafeAreaInsets();
   const { user, profile } = useAuth();
   const [requests, setRequests] = useState<FriendRequest[]>([]);
-  const [friends, setFriends] = useState<any[]>([]);
+  const [friends, setFriends] = useState<FriendSummary[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResult, setSearchResult] = useState<any>(null);
   const [isFriend, setIsFriend] = useState(false);
@@ -34,7 +34,7 @@ export default function FriendsScreen() {
   const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('friends');
-  const [selectedFriend, setSelectedFriend] = useState<any>(null);
+  const [selectedFriend, setSelectedFriend] = useState<FriendSummary | null>(null);
   const [friendStats, setFriendStats] = useState<any>(null);
   const [friendFavs, setFriendFavs] = useState<MovieActivity[]>([]);
   const [friendWatched, setFriendWatched] = useState<MovieActivity[]>([]);
@@ -72,11 +72,11 @@ export default function FriendsScreen() {
     } catch {} finally { setFriendListLoading(false); }
   };
 
-  const openFriendProfile = async (friend: any) => {
+  const openFriendProfile = async (friend: FriendSummary) => {
     setSelectedFriend(friend);
     setFriendTab('watched');
     setProfileLoading(true);
-    setFriendModalSearchCount(0);
+    setFriendModalSearchCount(friend.totalSearches);
     setFriendFriendsCount(0);
     setFriendWatched([]);
     setFriendWatchlist([]);
@@ -84,16 +84,13 @@ export default function FriendsScreen() {
     setFriendListCursors({});
     setFriendListHasMore({ watched: true, watchlist: true, favorites: true });
     try {
-      const [stats, sc, fc] = await Promise.all([
-        getUserStats(friend.uid),
-        getSearchCount(friend.uid),
-        getFriends(friend.uid),
+      const [stats, fc] = await Promise.all([
+        getUserStats(friend.userId),
+        getFriends(friend.userId),
       ]);
       setFriendStats(stats);
-      setFriendModalSearchCount(sc);
       setFriendFriendsCount(fc.length);
-      // Load first page of default tab
-      const { movies, lastDoc } = await getMovieListPaginated(friend.uid, 'watched', PAGE_SIZE);
+      const { movies, lastDoc } = await getMovieListPaginated(friend.userId, 'watched', PAGE_SIZE);
       setFriendWatched(movies);
       setFriendListCursors({ watched: lastDoc });
       setFriendListHasMore(prev => ({ ...prev, watched: movies.length === PAGE_SIZE }));
@@ -111,11 +108,10 @@ export default function FriendsScreen() {
     if (!user?.uid) return;
     setLoading(true);
     try {
-      const friendIds = await getFriends(user.uid);
-      const profiles = await Promise.all(friendIds.map(id => getUserProfile(id)));
-      setFriends(profiles.filter(Boolean));
+      const enriched = await getEnrichedFriends(user.uid);
+      setFriends(enriched);
       const counts: Record<string, number> = {};
-      await Promise.all(friendIds.map(async id => { counts[id] = await getSearchCount(id).catch(() => 0); }));
+      enriched.forEach(f => { counts[f.userId] = f.totalSearches; });
       setFriendSearchCounts(counts);
     } catch {} finally { setLoading(false); }
   };
@@ -303,7 +299,7 @@ export default function FriendsScreen() {
       {loading ? <ActivityIndicator color={colors.red} style={{ marginTop: 40 }} /> : (
         <FlatList
           data={tab === 'friends' ? friends : requests}
-          keyExtractor={(item, i) => (tab === 'friends' ? item?.uid || i.toString() : item?.id || i.toString())}
+          keyExtractor={(item, i) => (tab === 'friends' ? (item as FriendSummary)?.userId || i.toString() : (item as FriendRequest)?.id || i.toString())}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }}
           ListEmptyComponent={
             <View style={s.empty}>
@@ -331,12 +327,12 @@ export default function FriendsScreen() {
                 </View>
               );
             }
-            const friend = item;
+            const friend = item as FriendSummary;
             const isEmoji = friend?.photoURL && !friend.photoURL.startsWith('http');
             const isUrl = friend?.photoURL && friend.photoURL.startsWith('http');
             return (
               <TouchableOpacity style={s.friendCard} activeOpacity={0.7} onPress={() => openFriendProfile(friend)}>
-                <ProfileRing tier={getTier(friendSearchCounts[friend.uid] || 0)} size="small">
+                <ProfileRing tier={getTier(friendSearchCounts[friend.userId] || 0)} size="small">
                   <View style={s.avatarSmall}>
                     {isUrl ? <Image source={{ uri: friend.photoURL }} style={{ width: '100%', height: '100%', borderRadius: 16 }} />
                       : isEmoji ? <Text style={{ fontSize: 16 }}>{friend.photoURL}</Text>
@@ -483,7 +479,7 @@ export default function FriendsScreen() {
                     setFriendTab(key as any);
                     if ((key === 'watchlist' && friendWatchlist.length === 0 && friendListHasMore.watchlist) ||
                         (key === 'favorites' && friendFavs.length === 0 && friendListHasMore.favorites)) {
-                      loadFriendTab(selectedFriend.uid, key as any, true);
+                    loadFriendTab(selectedFriend.userId, key as any, true);
                     }
                   }}>
                     <Text style={[s.friendTabText, friendTab === key && s.friendTabTextActive]}>{label}</Text>
@@ -529,7 +525,7 @@ export default function FriendsScreen() {
               {friendListHasMore[friendTab] && (friendTab === 'watched' ? friendWatched : friendTab === 'watchlist' ? friendWatchlist : friendFavs).length > 0 && (
                 <TouchableOpacity
                   style={s.loadMoreBtn}
-                  onPress={() => loadFriendTab(selectedFriend.uid, friendTab)}
+                  onPress={() => loadFriendTab(selectedFriend.userId, friendTab)}
                   disabled={friendListLoading}
                   activeOpacity={0.7}
                 >

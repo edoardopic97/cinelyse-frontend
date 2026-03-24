@@ -9,6 +9,9 @@ import { colors } from '../theme/colors';
 import { getGenreColor } from '../theme/genreColors';
 import { useSharedMovie } from '../contexts/SharedMovieContext';
 import MovieActivityButtons from './MovieActivityButtons';
+import SimilarMovies from './SimilarMovies';
+import WatchProviders from './WatchProviders';
+import TrailerButton from './TrailerButton';
 
 export default function SharedMovieModal() {
   const insets = useSafeAreaInsets();
@@ -20,7 +23,7 @@ export default function SharedMovieModal() {
   const hasPoster = movie.Poster && movie.Poster !== 'N/A' && movie.Poster !== '';
 
   const handleShare = () => {
-    const url = movie.tmdbID ? `https://backend-eta-ochre-46.vercel.app/movie/${movie.tmdbID}` : '';
+    const url = movie.tmdbID ? `https://backend-eta-ochre-46.vercel.app/movie/${movie.tmdbID}${movie.Type === 'series' ? '?type=tv' : ''}` : '';
     const lines = [`🎬 ${movie.Title}${movie.Year ? ` (${movie.Year})` : ''}`];
     if (rating > 0) lines.push(`⭐ ${rating.toFixed(1)} TMDB`);
     if (movie.Genre) lines.push(movie.Genre);
@@ -94,6 +97,9 @@ export default function SharedMovieModal() {
               </View>
             )}
 
+            {movie.tmdbID && <TrailerButton tmdbID={movie.tmdbID} type={movie.Type} />}
+            {movie.tmdbID && <WatchProviders tmdbID={movie.tmdbID} type={movie.Type} />}
+
             <View style={s.activitySection}>
               <Text style={s.detailLabel}>Your Activity</Text>
               <MovieActivityButtons movie={{
@@ -123,6 +129,8 @@ export default function SharedMovieModal() {
                 <Text style={s.imdbText}>View on TMDB</Text>
               </TouchableOpacity>
             )}
+
+            {movie.tmdbID && <SimilarMovies tmdbID={movie.tmdbID} type={movie.Type} />}
           </View>
         </ScrollView>
       </View>

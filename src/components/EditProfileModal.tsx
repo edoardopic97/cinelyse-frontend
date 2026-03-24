@@ -20,6 +20,29 @@ export default function EditProfileModal({ visible, onClose, onSaved }: Props) {
   const [avatar, setAvatar] = useState(profile?.photoURL || AVATARS[0]);
   const [showAvatars, setShowAvatars] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
+  const isGoogle = user?.providerData?.some(p => p.providerId === 'google.com');
+
+  const handleDelete = async () => {
+    if (!isGoogle && !deletePassword.trim()) {
+      Alert.alert('Error', 'Please enter your password');
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteAccount(isGoogle ? undefined : deletePassword);
+    } catch (err: any) {
+      const msg = err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential'
+        ? 'Incorrect password. Please try again.'
+        : 'Failed to delete account. Please try again.';
+      Alert.alert('Error', msg);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!user?.uid) return;
@@ -67,19 +90,48 @@ export default function EditProfileModal({ visible, onClose, onSaved }: Props) {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={s.deleteBtn} onPress={() => Alert.alert(
-            'Delete Account',
-            'This will permanently delete your account and all your data. This cannot be undone.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Delete', style: 'destructive', onPress: () => deleteAccount().catch(() =>
-                Alert.alert('Error', 'Failed to delete account. You may need to sign in again before deleting.')
-              )},
-            ],
-          )}>
+          <TouchableOpacity style={s.deleteBtn} onPress={() => {
+            Alert.alert(
+              'Delete Account',
+              'This will permanently delete your account and all your data. This cannot be undone.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Continue', style: 'destructive', onPress: () => {
+                  if (isGoogle) {
+                    handleDelete();
+                  } else {
+                    setShowDeleteConfirm(true);
+                  }
+                }},
+              ],
+            );
+          }}>
             <Ionicons name="trash-outline" size={16} color="#ff3b30" />
             <Text style={s.deleteBtnText}>Delete Account</Text>
           </TouchableOpacity>
+
+          {showDeleteConfirm && !isGoogle && (
+            <View style={s.deleteConfirm}>
+              <Text style={s.deleteConfirmLabel}>Enter your password to confirm</Text>
+              <TextInput
+                style={s.input}
+                value={deletePassword}
+                onChangeText={setDeletePassword}
+                placeholder="Password"
+                placeholderTextColor={colors.subtle}
+                secureTextEntry
+                autoFocus
+              />
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                <TouchableOpacity style={[s.cancelBtn, { flex: 1 }]} onPress={() => { setShowDeleteConfirm(false); setDeletePassword(''); }}>
+                  <Text style={s.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[s.deleteBtn, { flex: 1, marginTop: 0 }]} onPress={handleDelete} disabled={deleting}>
+                  {deleting ? <ActivityIndicator color="#ff3b30" size="small" /> : <Text style={s.deleteBtnText}>Delete Forever</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -107,4 +159,6 @@ const s = StyleSheet.create({
   saveText: { color: colors.white, fontSize: 15, fontWeight: '700' },
   deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(255,59,48,0.1)', borderWidth: 1, borderColor: 'rgba(255,59,48,0.3)', borderRadius: 10, paddingVertical: 14, marginTop: 24 },
   deleteBtnText: { color: '#ff3b30', fontSize: 14, fontWeight: '700' },
+  deleteConfirm: { backgroundColor: 'rgba(255,59,48,0.05)', borderWidth: 1, borderColor: 'rgba(255,59,48,0.2)', borderRadius: 12, padding: 16, marginTop: 12, gap: 10 },
+  deleteConfirmLabel: { color: colors.muted, fontSize: 13, fontWeight: '600' },
 });
