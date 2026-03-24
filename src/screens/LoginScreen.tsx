@@ -13,6 +13,7 @@ import { auth } from '../lib/firebase';
 import { setUserProfile, checkUsernameExists, getUserProfile } from '../lib/firestore';
 import { registerForPushNotifications } from '../lib/notifications';
 import { colors } from '../theme/colors';
+import { getFriendlyError } from '../utils/errorMessages';
 
 GoogleSignin.configure({
   webClientId: '226486672662-7hl37cks66rl2o37cv1cja6uveg4sl5m.apps.googleusercontent.com',
@@ -85,7 +86,7 @@ export default function LoginScreen() {
       registerForPushNotifications(cred.user.uid).catch(() => {});
     } catch (err: any) {
       if (err.code !== 'SIGN_IN_CANCELLED') {
-        Alert.alert('Error', err.message || 'Google sign-in failed');
+        Alert.alert('Error', getFriendlyError(err, 'Google sign-in failed. Please try again.'));
       }
     } finally {
       setGoogleLoading(false);

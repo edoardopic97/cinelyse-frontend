@@ -1,7 +1,7 @@
 import {
   doc, getDoc, setDoc, updateDoc, collection, query, where,
   getDocs, deleteDoc, Timestamp, onSnapshot, type Unsubscribe,
-  limit, startAfter, orderBy, type QueryDocumentSnapshot,
+  limit, startAfter, orderBy, type QueryDocumentSnapshot, increment,
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -148,7 +148,7 @@ export interface FriendSummary {
 
 export async function getEnrichedFriends(userId: string): Promise<FriendSummary[]> {
   const snap = await getDocs(collection(db, 'users', userId, 'friends'));
-  return snap.docs.map(d => {
+  const friends = snap.docs.map(d => {
     const data = d.data();
     return {
       userId: data.userId,
@@ -158,6 +158,27 @@ export async function getEnrichedFriends(userId: string): Promise<FriendSummary[
       addedAt: data.addedAt,
     };
   });
+  // Backfill missing display names from actual user profiles
+  const needsFetch = friends.filter(f => !f.displayName);
+  if (needsFetch.length > 0) {
+    const profiles = await Promise.all(needsFetch.map(f => getDoc(doc(db, 'users', f.userId))));
+    profiles.forEach((profileSnap, i) => {
+      if (profileSnap.exists()) {
+        const data = profileSnap.data();
+        const friend = needsFetch[i];
+        friend.displayName = data.displayName || '';
+        friend.photoURL = data.photoURL || friend.photoURL;
+        friend.totalSearches = data.totalSearches || friend.totalSearches;
+        // Fix the denormalized doc for next time
+        setDoc(doc(db, 'users', userId, 'friends', friend.userId), {
+          displayName: friend.displayName,
+          photoURL: friend.photoURL,
+          totalSearches: friend.totalSearches,
+        }, { merge: true }).catch(() => {});
+      }
+    });
+  }
+  return friends;
 }
 
 export async function searchUserByUsername(username: string) {
@@ -414,11 +435,9 @@ export async function findUsersByEmails(emails: string[], excludeUid: string): P
 
 export async function incrementSearchCount(userId: string): Promise<void> {
   const ref = doc(db, 'users', userId);
+  await setDoc(ref, { totalSearches: increment(1), updatedAt: Timestamp.now() }, { merge: true });
   const snap = await getDoc(ref);
-  const current = snap.exists() ? (snap.data().totalSearches || 0) : 0;
-  const newCount = current + 1;
-  await setDoc(ref, { totalSearches: newCount, updatedAt: Timestamp.now() }, { merge: true });
-  // Fan out to all friends' denormalized docs
+  const newCount = snap.exists() ? (snap.data().totalSearches || 0) : 0;
   const friendsSnap = await getDocs(collection(db, 'users', userId, 'friends'));
   const updates = friendsSnap.docs.map(d =>
     setDoc(doc(db, 'users', d.id, 'friends', userId), { totalSearches: newCount }, { merge: true })

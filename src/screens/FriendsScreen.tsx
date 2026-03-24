@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Contacts from 'expo-contacts';
 import { colors } from '../theme/colors';
+import { getFriendlyError } from '../utils/errorMessages';
 import { getGenreColor } from '../theme/genreColors';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -84,16 +85,28 @@ export default function FriendsScreen() {
     setFriendListCursors({});
     setFriendListHasMore({ watched: true, watchlist: true, favorites: true });
     try {
-      const [stats, fc] = await Promise.all([
+      const [stats, fc, watchedRes, watchlistRes, favsRes] = await Promise.all([
         getUserStats(friend.userId),
         getFriends(friend.userId),
+        getMovieListPaginated(friend.userId, 'watched', PAGE_SIZE),
+        getMovieListPaginated(friend.userId, 'toWatch', PAGE_SIZE),
+        getMovieListPaginated(friend.userId, 'favorite', PAGE_SIZE),
       ]);
       setFriendStats(stats);
       setFriendFriendsCount(fc.length);
-      const { movies, lastDoc } = await getMovieListPaginated(friend.userId, 'watched', PAGE_SIZE);
-      setFriendWatched(movies);
-      setFriendListCursors({ watched: lastDoc });
-      setFriendListHasMore(prev => ({ ...prev, watched: movies.length === PAGE_SIZE }));
+      setFriendWatched(watchedRes.movies);
+      setFriendWatchlist(watchlistRes.movies);
+      setFriendFavs(favsRes.movies);
+      setFriendListCursors({
+        watched: watchedRes.lastDoc,
+        watchlist: watchlistRes.lastDoc,
+        favorites: favsRes.lastDoc,
+      });
+      setFriendListHasMore({
+        watched: watchedRes.movies.length === PAGE_SIZE,
+        watchlist: watchlistRes.movies.length === PAGE_SIZE,
+        favorites: favsRes.movies.length === PAGE_SIZE,
+      });
     } catch {} finally { setProfileLoading(false); }
   };
 
@@ -149,7 +162,7 @@ export default function FriendsScreen() {
 
       setSuggestedUsers(withStatus);
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to load suggestions.');
+      Alert.alert('Error', getFriendlyError(e, 'Failed to load suggestions.'));
     } finally { setSuggestedLoading(false); }
   };
 
@@ -160,7 +173,7 @@ export default function FriendsScreen() {
       await sendFriendRequest(user.uid, profile?.displayName || 'User', target.uid);
       setSuggestedUsers(prev => prev.map(u => u.uid === target.uid ? { ...u, _status: 'pending' } : u));
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to send request.');
+      Alert.alert('Error', getFriendlyError(e, 'Failed to send request.'));
     } finally { setSendingTo(null); }
   };
 
@@ -200,7 +213,7 @@ export default function FriendsScreen() {
       setIsFriend(friendStatus);
       setHasPending(pendingStatus);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Search failed');
+      Alert.alert('Error', getFriendlyError(err, 'Search failed. Please try again.'));
     } finally { setSearching(false); }
   };
 
@@ -212,7 +225,7 @@ export default function FriendsScreen() {
       setHasPending(true);
       Alert.alert('Sent!', `Friend request sent to ${searchResult.displayName}`);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to send request');
+      Alert.alert('Error', getFriendlyError(err, 'Failed to send request.'));
     } finally { setSearching(false); }
   };
 
@@ -477,10 +490,6 @@ export default function FriendsScreen() {
                 {([['watched', 'Watched', friendWatched], ['watchlist', 'Watchlist', friendWatchlist], ['favorites', 'Favorites', friendFavs]] as const).map(([key, label, list]) => (
                   <TouchableOpacity key={key} style={[s.friendTabBtn, friendTab === key && s.friendTabActive]} onPress={() => {
                     setFriendTab(key as any);
-                    if ((key === 'watchlist' && friendWatchlist.length === 0 && friendListHasMore.watchlist) ||
-                        (key === 'favorites' && friendFavs.length === 0 && friendListHasMore.favorites)) {
-                    loadFriendTab(selectedFriend.userId, key as any, true);
-                    }
                   }}>
                     <Text style={[s.friendTabText, friendTab === key && s.friendTabTextActive]}>{label}</Text>
                     <Text style={[s.friendTabCount, friendTab === key && { color: colors.red }]}>

@@ -111,13 +111,10 @@ export default function ProfileScreen() {
       .slice(0, 5);
   }, [watched, toWatch, favs]);
   const avgRating = useMemo(() => {
-    const allMovies = [...watched, ...toWatch, ...favs];
-    const seen = new Set<string>();
-    const unique = allMovies.filter(m => { if (seen.has(m.movieId)) return false; seen.add(m.movieId); return true; });
-    const rated = unique.filter(m => m.rating && m.rating > 0);
+    const rated = watched.filter(m => m.rating && m.rating > 0);
     if (!rated.length) return '—';
     return (rated.reduce((s, m) => s + (m.rating || 0), 0) / rated.length).toFixed(1);
-  }, [watched, toWatch, favs]);
+  }, [watched]);
 
   const displayName = profile?.displayName || user?.email?.split('@')[0] || 'User';
   const initials = displayName.charAt(0).toUpperCase();
@@ -166,6 +163,14 @@ export default function ProfileScreen() {
     </TouchableOpacity>
   );
 
+  const [showSortDrop, setShowSortDrop] = useState(false);
+
+  const SORT_OPTIONS: { value: Sort; label: string; icon: string }[] = [
+    { value: 'date', label: 'Recent', icon: 'time-outline' },
+    { value: 'rating', label: 'Rating', icon: 'star-outline' },
+    { value: 'title', label: 'A-Z', icon: 'text-outline' },
+  ];
+
   const renderFilterBar = (opts: {
     search: string; setSearch: (v: string) => void;
     sort: Sort; setSort: (v: Sort) => void;
@@ -180,10 +185,25 @@ export default function ProfileScreen() {
           <TextInput style={s.searchInput} placeholder={opts.placeholder} placeholderTextColor={colors.subtle} value={opts.search} onChangeText={opts.setSearch} />
         </View>
         <View style={s.filterActions}>
-          <TouchableOpacity style={s.sortBtn} onPress={() => opts.setSort(opts.sort === 'date' ? 'rating' : opts.sort === 'rating' ? 'title' : 'date')}>
-            <Ionicons name={opts.sort === 'date' ? 'time-outline' : opts.sort === 'rating' ? 'star-outline' : 'text-outline'} size={14} color={colors.muted} />
-            <Text style={s.sortText}>{opts.sort === 'date' ? 'Recent' : opts.sort === 'rating' ? 'Rating' : 'A-Z'}</Text>
-          </TouchableOpacity>
+          <View style={{ position: 'relative', zIndex: 99 }}>
+            <TouchableOpacity style={s.sortBtn} onPress={() => setShowSortDrop(!showSortDrop)}>
+              <Text style={s.sortLabel}>Sort by</Text>
+              <Ionicons name={SORT_OPTIONS.find(o => o.value === opts.sort)!.icon as any} size={14} color={colors.red} />
+              <Text style={s.sortText}>{SORT_OPTIONS.find(o => o.value === opts.sort)!.label}</Text>
+              <Ionicons name="chevron-down" size={12} color={colors.subtle} />
+            </TouchableOpacity>
+            {showSortDrop && (
+              <View style={s.sortDropdown}>
+                {SORT_OPTIONS.map(o => (
+                  <TouchableOpacity key={o.value} style={[s.sortDropItem, opts.sort === o.value && s.sortDropItemActive]} onPress={() => { opts.setSort(o.value); setShowSortDrop(false); }}>
+                    <Ionicons name={o.icon as any} size={14} color={opts.sort === o.value ? colors.red : colors.muted} />
+                    <Text style={[s.sortDropText, opts.sort === o.value && { color: colors.red }]}>{o.label}</Text>
+                    {opts.sort === o.value && <Ionicons name="checkmark" size={14} color={colors.red} style={{ marginLeft: 'auto' }} />}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
           <View style={s.viewToggle}>
             <TouchableOpacity style={[s.viewBtn, opts.viewMode === 'grid' && s.viewBtnActive]} onPress={() => opts.setViewMode('grid')}><Ionicons name="grid-outline" size={14} color={opts.viewMode === 'grid' ? colors.red : colors.subtle} /></TouchableOpacity>
             <TouchableOpacity style={[s.viewBtn, opts.viewMode === 'list' && s.viewBtnActive]} onPress={() => opts.setViewMode('list')}><Ionicons name="list-outline" size={14} color={opts.viewMode === 'list' ? colors.red : colors.subtle} /></TouchableOpacity>
@@ -271,7 +291,7 @@ export default function ProfileScreen() {
         {/* Tabs */}
         <View style={s.tabRow}>
           {tabs.map(t => (
-            <TouchableOpacity key={t.id} style={[s.tab, tab === t.id && s.tabActive]} onPress={() => setTab(t.id)}>
+            <TouchableOpacity key={t.id} style={[s.tab, tab === t.id && s.tabActive]} onPress={() => { setTab(t.id); setShowSortDrop(false); }}>
               <Ionicons name={t.icon as any} size={16} color={tab === t.id ? colors.white : colors.subtle} />
               <Text style={[s.tabText, tab === t.id && s.tabTextActive]}>{t.label}</Text>
 
@@ -325,11 +345,9 @@ export default function ProfileScreen() {
                   <Text style={{ color: colors.subtle, fontSize: 12 }}>
                     {next ? `${needed - searchCount} more searches to ${TIER_META[next].label}` : 'Max level reached 🏆'}
                   </Text>
-                  {next && (
-                    <View style={{ width: '100%', height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 99, overflow: 'hidden' }}>
-                      <View style={{ height: '100%', width: `${Math.min(progress * 100, 100)}%`, backgroundColor: tierMeta.color, borderRadius: 99 }} />
-                    </View>
-                  )}
+                  <View style={{ width: '100%', height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 99, overflow: 'hidden' }}>
+                    <View style={{ height: '100%', width: `${Math.min(progress * 100, 100)}%`, backgroundColor: tierMeta.color, borderRadius: 99 }} />
+                  </View>
                 </View>
               </View>
               {/* Top genres grouped bar chart */}
@@ -370,7 +388,7 @@ export default function ProfileScreen() {
                   { label: 'Movies Watched', value: watched.length, icon: 'eye-outline', color: colors.red },
                   { label: 'In Watchlist', value: toWatch.length, icon: 'bookmark-outline', color: colors.gold },
                   { label: 'Marked Favorite', value: favs.length, icon: 'heart-outline', color: '#ff6b6b' },
-                  { label: 'Rated', value: (() => { const all = [...watched, ...toWatch, ...favs]; const seen = new Set<string>(); return all.filter(m => { if (seen.has(m.movieId)) return false; seen.add(m.movieId); return true; }).filter(m => m.rating && m.rating > 0).length; })(), icon: 'star-outline', color: '#a78bfa' },
+                  { label: 'Rated', value: watched.filter(m => m.rating && m.rating > 0).length, icon: 'star-outline', color: '#a78bfa' },
                 ].map(item => (
                   <View key={item.label} style={s.actRow}>
                     <Ionicons name={item.icon as any} size={14} color={item.color} />
@@ -468,14 +486,19 @@ const s = StyleSheet.create({
   tabBadgeActive: { backgroundColor: 'rgba(229,9,20,0.2)', borderColor: 'rgba(229,9,20,0.35)' },
   tabBadgeText: { color: colors.subtle, fontSize: 10, fontWeight: '700' },
   // Content
-  content: { paddingHorizontal: 16 },
+  content: { paddingHorizontal: 16, zIndex: 1 },
   // Filter bar
   filterBar: { gap: 8, marginBottom: 10 },
   searchWrap: { position: 'relative' },
   searchInput: { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 8, padding: 10, paddingLeft: 34, fontSize: 13, color: colors.text },
   filterActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  sortLabel: { color: colors.subtle, fontSize: 11, fontWeight: '600' },
   sortText: { color: colors.muted, fontSize: 12, fontWeight: '600' },
+  sortDropdown: { position: 'absolute', top: 42, left: 0, zIndex: 999, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 10, paddingVertical: 4, minWidth: 150, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 8 },
+  sortDropItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10 },
+  sortDropItemActive: { backgroundColor: 'rgba(229,9,20,0.08)' },
+  sortDropText: { color: colors.text, fontSize: 13, fontWeight: '600' },
   viewToggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 8, padding: 3 },
   viewBtn: { padding: 6, borderRadius: 5 },
   viewBtnActive: { backgroundColor: 'rgba(229,9,20,0.2)' },

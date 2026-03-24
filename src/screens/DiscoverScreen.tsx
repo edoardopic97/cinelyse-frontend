@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList,
-  ActivityIndicator, Dimensions, ScrollView, Modal,
+  ActivityIndicator, Dimensions, ScrollView, Modal, Keyboard, Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +9,7 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme/colors';
 import { searchMovies, fetchTrending, type MovieResult } from '../api/client';
+import { getFriendlyError } from '../utils/errorMessages';
 import { useAuth } from '../contexts/AuthContext';
 import { useCredits } from '../hooks/useCredits';
 import { getSearchCount, acceptFriendRequest, rejectFriendRequest, deleteNotification } from '../lib/firestore';
@@ -30,6 +31,26 @@ const GHOST_CARDS = [
 ];
 
 const RATINGS = ['Any', '7+', '8+', '9+'];
+
+function TrendingSkeleton() {
+  return (
+    <View style={{ gap: 20 }}>
+      {[0, 1].map(section => (
+        <View key={section}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <View style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.06)' }} />
+            <View style={{ width: 160, height: 14, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.06)' }} />
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 0 }}>
+            {[0, 1, 2, 3].map(i => (
+              <View key={i} style={{ width: (SCREEN_W - 44 - 14) / 3, aspectRatio: 2 / 3, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }} />
+            ))}
+          </ScrollView>
+        </View>
+      ))}
+    </View>
+  );
+}
 
 type Category = 'all' | 'movie' | 'tv';
 
@@ -129,7 +150,7 @@ function PremiumPicksSection({ onUnlock }: { onUnlock?: () => void }) {
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
   const { user, profile } = useAuth();
-  const { credits, maxCredits, refresh } = useCredits(user?.uid);
+  const { credits, maxCredits, refresh, consume } = useCredits(user?.uid);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MovieResult[]>([]);
   const [allResults, setAllResults] = useState<MovieResult[]>([]);
@@ -203,7 +224,7 @@ export default function DiscoverScreen() {
     const searchQuery = (q || query).trim();
     if (!searchQuery) return;
 
-    if (aiMode && credits <= 0) {
+    if (aiMode && !consume()) {
       setError(`No AI credits left. Resets in ${getResetTime()}`);
       return;
     }
@@ -223,10 +244,7 @@ export default function DiscoverScreen() {
         setAllResults(movies);
         setResults(movies);
       } catch (err: any) {
-        const msg = err?.response?.status === 429
-          ? `Daily search limit reached. Try again tomorrow!`
-          : (err?.message || 'Search failed');
-        setError(msg);
+        setError(getFriendlyError(err, 'Search failed. Please try again.'));
         setAllResults([]);
         setResults([]);
       } finally {
@@ -246,10 +264,9 @@ export default function DiscoverScreen() {
       setAllResults(movies);
       setResults(movies);
     } catch (err: any) {
-      const msg = err?.response?.status === 429
+      setError(err?.response?.status === 429
         ? `No AI credits left. Resets in ${getResetTime()}`
-        : (err?.message || 'Search failed');
-      setError(msg);
+        : getFriendlyError(err, 'Search failed. Please try again.'));
       setAllResults([]);
       setResults([]);
     } finally {
@@ -260,7 +277,7 @@ export default function DiscoverScreen() {
 
   const handleLoadMore = async () => {
     if (!lastQuery || loadingMore) return;
-    if (aiMode && credits <= 0) {
+    if (aiMode && !consume()) {
       setError(`No AI credits left. Resets in ${getResetTime()}`);
       return;
     }
@@ -278,7 +295,7 @@ export default function DiscoverScreen() {
       setAllResults(merged);
       setResults(merged);
     } catch (err: any) {
-      setError(err?.message || 'Failed to load more');
+      setError(getFriendlyError(err, 'Failed to load more. Please try again.'));
     } finally {
       setLoadingMore(false);
       if (aiMode) refresh();
@@ -326,7 +343,7 @@ export default function DiscoverScreen() {
   // ─── PRE-SEARCH HOME SCREEN ────────────────────────────────────────────────
   if (!hasSearched) {
     return (
-      <View style={s.container}>
+      <Pressable style={s.container} onPress={() => { setShowHistory(false); Keyboard.dismiss(); }}>
         <LinearGradient
           colors={['rgba(180,20,20,0.35)', 'transparent']}
           style={s.topGlow}
@@ -412,7 +429,6 @@ export default function DiscoverScreen() {
                 onChangeText={setQuery}
                 onSubmitEditing={() => handleSearch()}
                 onFocus={() => setShowHistory(true)}
-                onBlur={() => setTimeout(() => setShowHistory(false), 200)}
                 returnKeyType="search"
               />
             </View>
@@ -471,7 +487,7 @@ export default function DiscoverScreen() {
           {aiMode ? (
             <PremiumPicksSection onUnlock={() => { /* TODO: open paywall */ }} />
           ) : trendingLoading ? (
-            <ActivityIndicator color={colors.red} style={{ marginTop: 30 }} />
+            <TrendingSkeleton />
           ) : (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
               {trendingMovies.length > 0 && (
@@ -480,7 +496,7 @@ export default function DiscoverScreen() {
                     <Ionicons name="flame" size={16} color={colors.red} />
                     <Text style={s.trendingTitle}>Trending Movies Today</Text>
                   </View>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 22 }}>
                     {trendingMovies.map((m, i) => (
                       <MovieCard key={m.tmdbID || i} movie={m} allMovies={trendingMovies} currentIndex={i} />
                     ))}
@@ -493,7 +509,7 @@ export default function DiscoverScreen() {
                     <Ionicons name="flame" size={16} color={colors.red} />
                     <Text style={s.trendingTitle}>Trending TV Today</Text>
                   </View>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 22 }}>
                     {trendingTV.map((m, i) => (
                       <MovieCard key={m.tmdbID || i} movie={m} allMovies={trendingTV} currentIndex={i} />
                     ))}
@@ -506,7 +522,7 @@ export default function DiscoverScreen() {
 
         <SharedMovieModal />
 
-        {/* Notifications Modal */}
+        {/* Notifications Modal (outside Pressable is fine — it's a Modal) */}
         <Modal visible={showNotifs} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowNotifs(false)}>
           <SafeAreaView style={s.notifModal} edges={['top', 'bottom']}>
             <View style={s.notifHeader}>
@@ -599,7 +615,7 @@ export default function DiscoverScreen() {
             />
           </SafeAreaView>
         </Modal>
-      </View>
+      </Pressable>
     );
   }
 

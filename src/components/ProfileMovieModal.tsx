@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Modal, ScrollView, Linking, Share, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Modal, ScrollView, Linking, Share, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { getGenreColor } from '../theme/genreColors';
 import { useAuth } from '../contexts/AuthContext';
 import { removeMovieFromWatched, removeMovieFromToWatch, removeMovieFromFavorites, setMovieActivity, type MovieActivity } from '../lib/firestore';
+import { fetchMovieDetails } from '../api/client';
 import MovieActivityButtons, { type MovieData } from './MovieActivityButtons';
 import SimilarMovies from './SimilarMovies';
 import WatchProviders from './WatchProviders';
@@ -21,9 +22,42 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false }: 
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [removing, setRemoving] = useState(false);
+  const [enriched, setEnriched] = useState<MovieActivity | null>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  useEffect(() => {
+    setEnriched(null);
+    if (!movie?.tmdbID) return;
+    const needsEnrich = !movie.plot && !movie.director && !movie.actors;
+    if (!needsEnrich) return;
+    setLoadingDetails(true);
+    fetchMovieDetails(movie.tmdbID, movie.type || 'movie')
+      .then(details => {
+        setEnriched({
+          ...movie,
+          plot: movie.plot || details.Plot || undefined,
+          director: movie.director || details.Director || undefined,
+          actors: movie.actors || details.Actors || undefined,
+          runtime: movie.runtime || details.Runtime || undefined,
+          language: movie.language || details.Language || undefined,
+          country: movie.country || details.Country || undefined,
+          rated: movie.rated || details.Rated || undefined,
+          backdrop: movie.backdrop || details.Backdrop || undefined,
+          tagline: movie.tagline || details.Tagline || undefined,
+          poster: movie.poster || details.Poster || undefined,
+          genres: movie.genres?.length ? movie.genres : (details.Genre ? details.Genre.split(',').map((g: string) => g.trim()) : []),
+          tmdbRating: movie.tmdbRating || details.tmdbRating || undefined,
+          year: movie.year || details.Year || undefined,
+        });
+      })
+      .catch(() => {})
+      .finally(() => setLoadingDetails(false));
+  }, [movie?.movieId]);
+
   if (!movie) return null;
-  const genres = movie.genres || [];
-  const tmdbRating = parseFloat(movie.tmdbRating || '0');
+  const m = enriched || movie;
+  const genres = m.genres || [];
+  const tmdbRating = parseFloat(m.tmdbRating || '0');
 
   return (
     <Modal visible={!!movie} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
@@ -31,18 +65,24 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false }: 
         <ScrollView bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
           {/* Poster */}
           <View style={s.posterWrap}>
-            {movie.poster ? <Image source={{ uri: movie.poster }} style={s.poster} /> : (
+            {m.poster ? <Image source={{ uri: m.poster }} style={s.poster} /> : (
               <View style={s.noPoster}><Ionicons name="film-outline" size={64} color="rgba(255,255,255,0.15)" /></View>
             )}
             <TouchableOpacity style={s.closeBtn} onPress={onClose}><Ionicons name="close" size={22} color="#fff" /></TouchableOpacity>
           </View>
           <View style={s.info}>
-            {movie.type === 'series' && <View style={s.tvBadge}><Text style={s.tvText}>TV SERIES</Text></View>}
+            {loadingDetails && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <ActivityIndicator size="small" color={colors.red} />
+                <Text style={{ color: colors.muted, fontSize: 13 }}>Loading details…</Text>
+              </View>
+            )}
+            {m.type === 'series' && <View style={s.tvBadge}><Text style={s.tvText}>TV SERIES</Text></View>}
             <View style={s.titleRow}>
-              <Text style={[s.title, { flex: 1 }]}>{movie.title}</Text>
+              <Text style={[s.title, { flex: 1 }]}>{m.title}</Text>
               <TouchableOpacity style={s.shareBtn} onPress={() => {
-                const url = movie.tmdbID ? `https://backend-eta-ochre-46.vercel.app/movie/${movie.tmdbID}` : '';
-                const lines = [`🎬 ${movie.title}${movie.year ? ` (${movie.year})` : ''}`];
+                const url = m.tmdbID ? `https://backend-eta-ochre-46.vercel.app/movie/${m.tmdbID}` : '';
+                const lines = [`🎬 ${m.title}${m.year ? ` (${m.year})` : ''}`];
                 if (tmdbRating > 0) lines.push(`⭐ ${tmdbRating.toFixed(1)} TMDB`);
                 if (genres.length) lines.push(genres.join(', '));
                 if (url) lines.push(`\n${url}`);
@@ -50,65 +90,65 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false }: 
               }}><Ionicons name="share-outline" size={18} color={colors.white} /></TouchableOpacity>
             </View>
             <View style={s.metaRow}>
-              {movie.year ? <Text style={s.meta}>{movie.year}</Text> : null}
+              {m.year ? <Text style={s.meta}>{m.year}</Text> : null}
               {tmdbRating > 0 && <View style={s.metaItem}><Ionicons name="star" size={13} color={colors.gold} /><Text style={s.metaGold}>{tmdbRating.toFixed(1)} TMDB</Text></View>}
-              {movie.runtime ? <View style={s.metaItem}><Ionicons name="time-outline" size={12} color={colors.muted} /><Text style={s.meta}>{movie.runtime}</Text></View> : null}
-              {movie.rated ? <View style={s.ratedBadge}><Text style={s.ratedText}>{movie.rated}</Text></View> : null}
+              {m.runtime ? <View style={s.metaItem}><Ionicons name="time-outline" size={12} color={colors.muted} /><Text style={s.meta}>{m.runtime}</Text></View> : null}
+              {m.rated ? <View style={s.ratedBadge}><Text style={s.ratedText}>{m.rated}</Text></View> : null}
             </View>
             {genres.length > 0 && <View style={s.genreRow}>{genres.map((g, i) => { const c = getGenreColor(g); return <View key={i} style={[s.genrePill, { backgroundColor: c.bg, borderColor: c.border }]}><Text style={[s.genreText, { color: c.text }]}>{g}</Text></View>; })}</View>}
-            {movie.plot ? <Text style={s.plot}>{movie.plot}</Text> : null}
+            {m.plot ? <Text style={s.plot}>{m.plot}</Text> : null}
             <View style={s.detailGrid}>
-              {movie.director ? <View style={s.detailItem}><Text style={s.detailLabel}>Director</Text><Text style={s.detailVal}>{movie.director.split(',')[0]}</Text></View> : null}
-              {movie.language ? <View style={s.detailItem}><Text style={s.detailLabel}>Language</Text><Text style={s.detailVal}>{movie.language.split(',')[0]}</Text></View> : null}
-              {movie.country ? <View style={s.detailItem}><Text style={s.detailLabel}>Country</Text><Text style={s.detailVal}>{movie.country.split(',')[0]}</Text></View> : null}
+              {m.director ? <View style={s.detailItem}><Text style={s.detailLabel}>Director</Text><Text style={s.detailVal}>{m.director.split(',')[0]}</Text></View> : null}
+              {m.language ? <View style={s.detailItem}><Text style={s.detailLabel}>Language</Text><Text style={s.detailVal}>{m.language.split(',')[0]}</Text></View> : null}
+              {m.country ? <View style={s.detailItem}><Text style={s.detailLabel}>Country</Text><Text style={s.detailVal}>{m.country.split(',')[0]}</Text></View> : null}
             </View>
-            {movie.actors ? (
+            {m.actors ? (
               <View style={{ marginBottom: 16 }}>
                 <Text style={s.detailLabel}>Cast</Text>
-                <View style={s.castRow}>{movie.actors.split(',').map((a, i) => <View key={i} style={s.castPill}><Text style={s.castText}>{a.trim()}</Text></View>)}</View>
+                <View style={s.castRow}>{m.actors.split(',').map((a, i) => <View key={i} style={s.castPill}><Text style={s.castText}>{a.trim()}</Text></View>)}</View>
               </View>
             ) : null}
-            {movie.rating && movie.rating > 0 && (
+            {m.rating && m.rating > 0 && (
               <View style={s.yourRating}>
                 <Text style={s.detailLabel}>Your Rating</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                   <Ionicons name="star" size={18} color={colors.gold} />
-                  <Text style={{ color: colors.gold, fontSize: 18, fontWeight: '800' }}>{movie.rating}/10</Text>
+                  <Text style={{ color: colors.gold, fontSize: 18, fontWeight: '800' }}>{m.rating}/10</Text>
                 </View>
               </View>
             )}
-            {movie.tmdbID && <TrailerButton tmdbID={movie.tmdbID} type={movie.type} />}
-            {movie.tmdbID && <WatchProviders tmdbID={movie.tmdbID} type={movie.type} />}
+            {m.tmdbID && <TrailerButton tmdbID={m.tmdbID} type={m.type} />}
+            {m.tmdbID && <WatchProviders tmdbID={m.tmdbID} type={m.type} />}
 
-            {movie.tmdbID && (
-              <TouchableOpacity style={s.imdbLink} onPress={() => Linking.openURL(`https://www.themoviedb.org/${movie.type === 'series' ? 'tv' : 'movie'}/${movie.tmdbID}`)}>
+            {m.tmdbID && (
+              <TouchableOpacity style={s.imdbLink} onPress={() => Linking.openURL(`https://www.themoviedb.org/${m.type === 'series' ? 'tv' : 'movie'}/${m.tmdbID}`)}>
                 <Ionicons name="open-outline" size={14} color={colors.gold} /><Text style={s.imdbText}>View on TMDB</Text>
               </TouchableOpacity>
             )}
 
-            {movie.tmdbID && <SimilarMovies tmdbID={movie.tmdbID} type={movie.type} />}
+            {m.tmdbID && <SimilarMovies tmdbID={m.tmdbID} type={m.type} />}
 
             {readOnly && user?.uid && (
               <View style={s.activitySection}>
                 <Text style={s.detailLabel}>Your Activity</Text>
                 <MovieActivityButtons movie={{
-                  movieId: movie.movieId,
-                  title: movie.title,
-                  poster: movie.poster,
-                  genres: movie.genres,
-                  year: movie.year,
-                  tmdbRating: movie.tmdbRating,
-                  plot: movie.plot,
-                  runtime: movie.runtime,
-                  director: movie.director,
-                  actors: movie.actors,
-                  language: movie.language,
-                  country: movie.country,
-                  rated: movie.rated,
-                  type: movie.type,
-                  tmdbID: movie.tmdbID,
-                  backdrop: movie.backdrop,
-                  tagline: movie.tagline,
+                  movieId: m.movieId,
+                  title: m.title,
+                  poster: m.poster,
+                  genres: m.genres,
+                  year: m.year,
+                  tmdbRating: m.tmdbRating,
+                  plot: m.plot,
+                  runtime: m.runtime,
+                  director: m.director,
+                  actors: m.actors,
+                  language: m.language,
+                  country: m.country,
+                  rated: m.rated,
+                  type: m.type,
+                  tmdbID: m.tmdbID,
+                  backdrop: m.backdrop,
+                  tagline: m.tagline,
                 }} />
               </View>
             )}
