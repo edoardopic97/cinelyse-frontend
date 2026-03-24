@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { auth } from '../lib/firebase';
 
-const API_BASE = 'https://cinelyse-api.vercel.app';
+const API_BASE = 'https://backend-eta-ochre-46.vercel.app';
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const token = await auth.currentUser?.getIdToken();

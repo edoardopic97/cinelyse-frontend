@@ -18,13 +18,11 @@ export default function SharedMovieModal() {
   const rating = parseFloat(movie.tmdbRating || '0');
   const genres = movie.Genre ? movie.Genre.split(',').map(g => g.trim()) : [];
   const hasPoster = movie.Poster && movie.Poster !== 'N/A' && movie.Poster !== '';
-  const rtScore = movie.Ratings?.find(r => r.Source === 'Rotten Tomatoes')?.Value;
-  const metaScore = movie.Ratings?.find(r => r.Source === 'Metacritic')?.Value;
 
   const handleShare = () => {
-    const url = movie.tmdbID ? `https://cinelyse-api.vercel.app/movie/${movie.tmdbID}` : '';
+    const url = movie.tmdbID ? `https://backend-eta-ochre-46.vercel.app/movie/${movie.tmdbID}` : '';
     const lines = [`🎬 ${movie.Title}${movie.Year ? ` (${movie.Year})` : ''}`];
-    if (rating > 0) lines.push(`⭐ ${rating.toFixed(1)} IMDb`);
+    if (rating > 0) lines.push(`⭐ ${rating.toFixed(1)} TMDB`);
     if (movie.Genre) lines.push(movie.Genre);
     if (url) lines.push(`\n${url}`);
     Share.share({ message: lines.join('\n') });
@@ -64,19 +62,12 @@ export default function SharedMovieModal() {
               {rating > 0 && (
                 <View style={s.metaItem}>
                   <Ionicons name="star" size={13} color={colors.gold} />
-                  <Text style={s.metaGold}>{rating.toFixed(1)} IMDb</Text>
+                  <Text style={s.metaGold}>{rating.toFixed(1)} TMDB</Text>
                 </View>
               )}
               {movie.Runtime && <View style={s.metaItem}><Ionicons name="time-outline" size={12} color={colors.muted} /><Text style={s.metaText}>{movie.Runtime}</Text></View>}
               {movie.Rated && <View style={s.ratedBadge}><Text style={s.ratedText}>{movie.Rated}</Text></View>}
             </View>
-
-            {(rtScore || metaScore) && (
-              <View style={s.scoresRow}>
-                {rtScore && <View style={s.scoreCard}><Text style={{ fontSize: 18 }}>{parseInt(rtScore) >= 60 ? '🍅' : '🦠'}</Text><View><Text style={s.scoreValue}>{rtScore}</Text><Text style={s.scoreLabel}>Rotten Tomatoes</Text></View></View>}
-                {metaScore && <View style={s.scoreCard}><Text style={{ fontSize: 18 }}>🎯</Text><View><Text style={s.scoreValue}>{metaScore}</Text><Text style={s.scoreLabel}>Metacritic</Text></View></View>}
-              </View>
-            )}
 
             {genres.length > 0 && (
               <View style={s.genreRow}>
@@ -103,17 +94,10 @@ export default function SharedMovieModal() {
               </View>
             )}
 
-            {movie.Awards && movie.Awards.toLowerCase().includes('oscar') && (
-              <View style={s.awardsCard}>
-                <Text style={{ fontSize: 18 }}>🏆</Text>
-                <Text style={s.awardsText}>{movie.Awards}</Text>
-              </View>
-            )}
-
             <View style={s.activitySection}>
               <Text style={s.detailLabel}>Your Activity</Text>
               <MovieActivityButtons movie={{
-                movieId: movie.imdbID || movie.Title,
+                movieId: movie.tmdbID?.toString() || movie.imdbID || movie.Title,
                 title: movie.Title,
                 poster: hasPoster ? movie.Poster : undefined,
                 genres,
@@ -127,13 +111,14 @@ export default function SharedMovieModal() {
                 country: movie.Country,
                 rated: movie.Rated,
                 type: movie.Type,
-                awards: movie.Awards,
-                ratings: movie.Ratings,
+                tmdbID: movie.tmdbID,
+                backdrop: movie.Backdrop,
+                tagline: movie.Tagline,
               }} />
             </View>
 
             {movie.tmdbID && (
-              <TouchableOpacity style={s.imdbLink} onPress={() => Linking.openURL(`https://www.themoviedb.org/movie/${movie.tmdbID}`)}>
+              <TouchableOpacity style={s.imdbLink} onPress={() => Linking.openURL(`https://www.themoviedb.org/${movie.Type === 'series' ? 'tv' : 'movie'}/${movie.tmdbID}`)}>
                 <Ionicons name="open-outline" size={14} color={colors.gold} />
                 <Text style={s.imdbText}>View on TMDB</Text>
               </TouchableOpacity>

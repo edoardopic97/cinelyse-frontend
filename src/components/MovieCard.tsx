@@ -92,9 +92,9 @@ export default function MovieCard({ movie, allMovies = [], currentIndex = 0 }: P
                 <Text style={[s.title, { flex: 1 }]}>{current.Title}</Text>
                 <TouchableOpacity style={s.shareBtn} onPress={() => {
                   const r = parseFloat(current.tmdbRating || '0');
-                  const url = current.imdbID ? `https://cinelyse-api.vercel.app/movie/${current.imdbID}` : '';
+                  const url = current.tmdbID ? `https://backend-eta-ochre-46.vercel.app/movie/${current.tmdbID}` : '';
                   const lines = [`🎬 ${current.Title}${current.Year ? ` (${current.Year})` : ''}`];
-                  if (r > 0) lines.push(`⭐ ${r.toFixed(1)} IMDb`);
+                  if (r > 0) lines.push(`⭐ ${r.toFixed(1)} TMDB`);
                   if (current.Genre && current.Genre !== 'N/A') lines.push(current.Genre);
                   if (url) lines.push(`\n${url}`);
                   Share.share({ message: lines.join('\n') });
@@ -109,7 +109,7 @@ export default function MovieCard({ movie, allMovies = [], currentIndex = 0 }: P
                 {rating > 0 && (
                   <View style={s.metaItem}>
                     <Ionicons name="star" size={13} color={colors.gold} />
-                    <Text style={s.metaGold}>{rating.toFixed(1)} IMDb</Text>
+                    <Text style={s.metaGold}>{rating.toFixed(1)} TMDB</Text>
                   </View>
                 )}
                 {current.Runtime && current.Runtime !== 'N/A' && (
@@ -179,7 +179,7 @@ export default function MovieCard({ movie, allMovies = [], currentIndex = 0 }: P
               <View style={s.activitySection}>
                 <Text style={s.detailLabel}>Your Activity</Text>
                 <MovieActivityButtons movie={{
-                  movieId: current.imdbID || current.Title,
+                  movieId: current.tmdbID?.toString() || current.imdbID || current.Title,
                   title: current.Title,
                   poster: hasPoster ? current.Poster : undefined,
                   genres,

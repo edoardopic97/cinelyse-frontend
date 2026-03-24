@@ -21,8 +21,6 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false }: 
   if (!movie) return null;
   const genres = movie.genres || [];
   const tmdbRating = parseFloat(movie.tmdbRating || '0');
-  const rt = movie.ratings?.find(r => r.Source === 'Rotten Tomatoes')?.Value;
-  const meta = movie.ratings?.find(r => r.Source === 'Metacritic')?.Value;
 
   return (
     <Modal visible={!!movie} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
@@ -40,7 +38,7 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false }: 
             <View style={s.titleRow}>
               <Text style={[s.title, { flex: 1 }]}>{movie.title}</Text>
               <TouchableOpacity style={s.shareBtn} onPress={() => {
-                const url = movie.movieId?.startsWith('tt') ? `https://cinelyse-api.vercel.app/movie/${movie.movieId}` : '';
+                const url = movie.tmdbID ? `https://backend-eta-ochre-46.vercel.app/movie/${movie.tmdbID}` : '';
                 const lines = [`🎬 ${movie.title}${movie.year ? ` (${movie.year})` : ''}`];
                 if (tmdbRating > 0) lines.push(`⭐ ${tmdbRating.toFixed(1)} TMDB`);
                 if (genres.length) lines.push(genres.join(', '));
@@ -54,12 +52,6 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false }: 
               {movie.runtime ? <View style={s.metaItem}><Ionicons name="time-outline" size={12} color={colors.muted} /><Text style={s.meta}>{movie.runtime}</Text></View> : null}
               {movie.rated ? <View style={s.ratedBadge}><Text style={s.ratedText}>{movie.rated}</Text></View> : null}
             </View>
-            {(rt || meta) && (
-              <View style={s.scoresRow}>
-                {rt && <View style={s.scoreCard}><Text style={{ fontSize: 18 }}>{parseInt(rt) >= 60 ? '🍅' : '🦠'}</Text><View><Text style={s.scoreVal}>{rt}</Text><Text style={s.scoreLbl}>Rotten Tomatoes</Text></View></View>}
-                {meta && <View style={s.scoreCard}><Text style={{ fontSize: 18 }}>🎯</Text><View><Text style={s.scoreVal}>{meta}</Text><Text style={s.scoreLbl}>Metacritic</Text></View></View>}
-              </View>
-            )}
             {genres.length > 0 && <View style={s.genreRow}>{genres.map((g, i) => { const c = getGenreColor(g); return <View key={i} style={[s.genrePill, { backgroundColor: c.bg, borderColor: c.border }]}><Text style={[s.genreText, { color: c.text }]}>{g}</Text></View>; })}</View>}
             {movie.plot ? <Text style={s.plot}>{movie.plot}</Text> : null}
             <View style={s.detailGrid}>
@@ -73,9 +65,6 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false }: 
                 <View style={s.castRow}>{movie.actors.split(',').map((a, i) => <View key={i} style={s.castPill}><Text style={s.castText}>{a.trim()}</Text></View>)}</View>
               </View>
             ) : null}
-            {movie.awards && movie.awards.toLowerCase().includes('oscar') && (
-              <View style={s.awardsCard}><Text style={{ fontSize: 18 }}>🏆</Text><Text style={s.awardsText}>{movie.awards}</Text></View>
-            )}
             {movie.rating && movie.rating > 0 && (
               <View style={s.yourRating}>
                 <Text style={s.detailLabel}>Your Rating</Text>
@@ -85,9 +74,9 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false }: 
                 </View>
               </View>
             )}
-            {movie.movieId?.startsWith('tt') && (
-              <TouchableOpacity style={s.imdbLink} onPress={() => Linking.openURL(`https://www.imdb.com/title/${movie.movieId}`)}>
-                <Ionicons name="open-outline" size={14} color={colors.gold} /><Text style={s.imdbText}>View on IMDb</Text>
+            {movie.tmdbID && (
+              <TouchableOpacity style={s.imdbLink} onPress={() => Linking.openURL(`https://www.themoviedb.org/${movie.type === 'series' ? 'tv' : 'movie'}/${movie.tmdbID}`)}>
+                <Ionicons name="open-outline" size={14} color={colors.gold} /><Text style={s.imdbText}>View on TMDB</Text>
               </TouchableOpacity>
             )}
 
@@ -109,8 +98,9 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false }: 
                   country: movie.country,
                   rated: movie.rated,
                   type: movie.type,
-                  awards: movie.awards,
-                  ratings: movie.ratings,
+                  tmdbID: movie.tmdbID,
+                  backdrop: movie.backdrop,
+                  tagline: movie.tagline,
                 }} />
               </View>
             )}

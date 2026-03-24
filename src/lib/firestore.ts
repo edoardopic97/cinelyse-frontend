@@ -313,7 +313,7 @@ export async function addNotification(userId: string, type: AppNotification['typ
   const ref = doc(collection(db, 'users', userId, 'notifications'));
   await setDoc(ref, { id: ref.id, type, message, read: false, createdAt: Timestamp.now(), ...extra });
   // Trigger push notification
-  fetch('https://cinelyse-api.vercel.app/api/notify', {
+  fetch('https://backend-eta-ochre-46.vercel.app/api/notify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId, title: 'CINELYSE', body: message }),

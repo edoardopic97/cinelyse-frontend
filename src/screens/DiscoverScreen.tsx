@@ -237,7 +237,7 @@ export default function DiscoverScreen() {
     let llmQuery = searchQuery;
     if (category === 'movie') llmQuery += ', only movies (no TV series)';
     else if (category === 'tv') llmQuery += ', only TV series (no movies)';
-    if (minRating !== 'Any') llmQuery += `, minimum IMDb rating ${minRating}`;
+    if (minRating !== 'Any') llmQuery += `, minimum TMDB rating ${minRating}`;
 
     try {
       const res = await searchMovies(llmQuery, category, user?.uid, undefined, aiMode);
@@ -268,7 +268,7 @@ export default function DiscoverScreen() {
     let llmQuery = lastQuery;
     if (category === 'movie') llmQuery += ', only movies (no TV series)';
     else if (category === 'tv') llmQuery += ', only TV series (no movies)';
-    if (minRating !== 'Any') llmQuery += `, minimum IMDb rating ${minRating}`;
+    if (minRating !== 'Any') llmQuery += `, minimum TMDB rating ${minRating}`;
     const exclude = allResults.map(m => m.Title);
     try {
       const res = await searchMovies(llmQuery, category, user?.uid, exclude, aiMode);
