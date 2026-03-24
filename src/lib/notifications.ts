@@ -38,7 +38,7 @@ export async function registerForPushNotifications(userId: string): Promise<stri
   }
 
   const token = (await Notifications.getExpoPushTokenAsync({
-    projectId: '5a845c52-4d34-40d4-b6f2-25562c0f34a6',
+    projectId: 'a68e7420-6668-430f-86b2-2be5f383f06e',
   })).data;
 
   // Save token to Firestore

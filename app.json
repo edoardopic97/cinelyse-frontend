@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Cinelyse",
-    "slug": "cinesage",
+    "slug": "cinelyse-tmdb",
     "scheme": "cinelyse",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -29,10 +29,21 @@
           "action": "VIEW",
           "autoVerify": true,
           "data": [
-            { "scheme": "https", "host": "cinelyse-api.vercel.app", "pathPrefix": "/movie" }
+            {
+              "scheme": "https",
+              "host": "backend-eta-ochre-46.vercel.app",
+              "pathPrefix": "/movie"
+            }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
+      ],
+      "permissions": [
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS"
       ]
     },
     "plugins": [
@@ -54,7 +65,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "5a845c52-4d34-40d4-b6f2-25562c0f34a6"
+        "projectId": "a68e7420-6668-430f-86b2-2be5f383f06e"
       }
     },
     "owner": "edoardopiccollo",
@@ -62,7 +73,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/5a845c52-4d34-40d4-b6f2-25562c0f34a6"
+      "url": "https://u.expo.dev/a68e7420-6668-430f-86b2-2be5f383f06e"
     }
   }
 }
