@@ -18,6 +18,7 @@ import {
   findUsersByEmails, getSearchCount, getFriends,
   type FriendRequest, type UserProfile, type MovieActivity, type FriendSummary,
 } from '../lib/firestore';
+import { getUniqueGenres, filterByGenre } from '../lib/movieUtils';
 import ProfileRing, { getTier, TIER_META } from '../components/ProfileRing';
 import ProfileMovieModal from '../components/ProfileMovieModal';
 
@@ -49,6 +50,8 @@ export default function FriendsScreen() {
   const [friendListCursors, setFriendListCursors] = useState<Record<string, any>>({});
   const [friendListLoading, setFriendListLoading] = useState(false);
   const [friendListHasMore, setFriendListHasMore] = useState<Record<string, boolean>>({ watched: true, watchlist: true, favorites: true });
+  const [friendGenre, setFriendGenre] = useState('all');
+  const [showFriendGenreDrop, setShowFriendGenreDrop] = useState(false);
 
   // Suggested friends state
   const [suggestedVisible, setSuggestedVisible] = useState(false);
@@ -107,7 +110,7 @@ export default function FriendsScreen() {
         watchlist: watchlistRes.movies.length === PAGE_SIZE,
         favorites: favsRes.movies.length === PAGE_SIZE,
       });
-    } catch {} finally { setProfileLoading(false); }
+    } catch (e) { console.warn('Friend profile load error:', e); } finally { setProfileLoading(false); }
   };
 
   // Real-time listener for friend requests
@@ -490,6 +493,8 @@ export default function FriendsScreen() {
                 {([['watched', 'Watched', friendWatched], ['watchlist', 'Watchlist', friendWatchlist], ['favorites', 'Favorites', friendFavs]] as const).map(([key, label, list]) => (
                   <TouchableOpacity key={key} style={[s.friendTabBtn, friendTab === key && s.friendTabActive]} onPress={() => {
                     setFriendTab(key as any);
+                    setFriendGenre('all');
+                    setShowFriendGenreDrop(false);
                   }}>
                     <Text style={[s.friendTabText, friendTab === key && s.friendTabTextActive]}>{label}</Text>
                     <Text style={[s.friendTabCount, friendTab === key && { color: colors.red }]}>
@@ -501,17 +506,52 @@ export default function FriendsScreen() {
                 ))}
               </View>
 
+              {/* Genre filter */}
+              {(() => {
+                const currentList = friendTab === 'watched' ? friendWatched : friendTab === 'watchlist' ? friendWatchlist : friendFavs;
+                const genres = getUniqueGenres(currentList);
+                if (genres.length === 0) return null;
+                return (
+                  <View style={{ width: '100%', zIndex: 99, marginBottom: 12 }}>
+                    <TouchableOpacity style={[s.friendGenreBtn, friendGenre !== 'all' && { borderColor: 'rgba(229,9,20,0.4)' }]} onPress={() => setShowFriendGenreDrop(!showFriendGenreDrop)}>
+                      <Ionicons name="film-outline" size={14} color={friendGenre !== 'all' ? colors.red : colors.muted} />
+                      <Text style={[s.friendGenreBtnText, friendGenre !== 'all' && { color: colors.red }]}>{friendGenre === 'all' ? 'All Genres' : friendGenre}</Text>
+                      <Ionicons name="chevron-down" size={12} color={colors.subtle} />
+                    </TouchableOpacity>
+                    {showFriendGenreDrop && (
+                      <View style={s.friendGenreDropdown}>
+                        <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator nestedScrollEnabled>
+                          <TouchableOpacity style={[s.friendGenreDropItem, friendGenre === 'all' && s.friendGenreDropItemActive]} onPress={() => { setFriendGenre('all'); setShowFriendGenreDrop(false); }}>
+                            <Text style={[s.friendGenreDropText, friendGenre === 'all' && { color: colors.red }]}>All Genres</Text>
+                            {friendGenre === 'all' && <Ionicons name="checkmark" size={14} color={colors.red} style={{ marginLeft: 'auto' }} />}
+                          </TouchableOpacity>
+                          {genres.map(g => (
+                            <TouchableOpacity key={g} style={[s.friendGenreDropItem, friendGenre === g && s.friendGenreDropItemActive]} onPress={() => { setFriendGenre(g); setShowFriendGenreDrop(false); }}>
+                              <Text style={[s.friendGenreDropText, friendGenre === g && { color: colors.red }]}>{g}</Text>
+                              {friendGenre === g && <Ionicons name="checkmark" size={14} color={colors.red} style={{ marginLeft: 'auto' }} />}
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
+                );
+              })()}
+
               {/* Movie list */}
-              {friendListLoading && (friendTab === 'watched' ? friendWatched : friendTab === 'watchlist' ? friendWatchlist : friendFavs).length === 0 ? (
-                <ActivityIndicator color={colors.red} style={{ marginTop: 30 }} />
-              ) : (friendTab === 'watched' ? friendWatched : friendTab === 'watchlist' ? friendWatchlist : friendFavs).length === 0 ? (
-                <View style={s.friendMovieEmpty}>
-                  <Ionicons name={friendTab === 'watched' ? 'eye-outline' : friendTab === 'watchlist' ? 'bookmark-outline' : 'heart-outline'} size={32} color="rgba(255,255,255,0.1)" />
-                  <Text style={s.friendMovieEmptyText}>No {friendTab} movies yet</Text>
-                </View>
-              ) : (
+              {(() => {
+                const raw = friendTab === 'watched' ? friendWatched : friendTab === 'watchlist' ? friendWatchlist : friendFavs;
+                const displayList = filterByGenre(raw, friendGenre);
+                if (friendListLoading && raw.length === 0) return <ActivityIndicator color={colors.red} style={{ marginTop: 30 }} />;
+                if (displayList.length === 0) return (
+                  <View style={s.friendMovieEmpty}>
+                    <Ionicons name={friendTab === 'watched' ? 'eye-outline' : friendTab === 'watchlist' ? 'bookmark-outline' : 'heart-outline'} size={32} color="rgba(255,255,255,0.1)" />
+                    <Text style={s.friendMovieEmptyText}>{friendGenre !== 'all' ? 'No movies match this genre' : `No ${friendTab} movies yet`}</Text>
+                  </View>
+                );
+                return (
                 <View style={s.friendMovieGrid}>
-                  {(friendTab === 'watched' ? friendWatched : friendTab === 'watchlist' ? friendWatchlist : friendFavs).map((m, i) => (
+                  {displayList.map((m, i) => (
                     <View key={m.movieId || i} style={s.friendMovieCard}>
                       <TouchableOpacity activeOpacity={0.85} onPress={() => setSelectedFriendMovie(m)}>
                       {m.poster ? (
@@ -530,7 +570,8 @@ export default function FriendsScreen() {
                     </View>
                   ))}
                 </View>
-              )}
+                );
+              })()}
               {friendListHasMore[friendTab] && (friendTab === 'watched' ? friendWatched : friendTab === 'watchlist' ? friendWatchlist : friendFavs).length > 0 && (
                 <TouchableOpacity
                   style={s.loadMoreBtn}
@@ -641,4 +682,10 @@ const s = StyleSheet.create({
   friendMovieRating: { color: colors.gold, fontSize: 10, fontWeight: '700' },
   loadMoreBtn: { alignItems: 'center', justifyContent: 'center', paddingVertical: 12, marginTop: 12, backgroundColor: 'rgba(229,9,20,0.15)', borderWidth: 1, borderColor: 'rgba(229,9,20,0.3)', borderRadius: 10, width: '100%' },
   loadMoreText: { color: colors.white, fontSize: 13, fontWeight: '700' },
+  friendGenreBtn: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  friendGenreBtnText: { color: colors.muted, fontSize: 12, fontWeight: '600' },
+  friendGenreDropdown: { position: 'absolute', top: 42, left: 0, zIndex: 999, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 10, paddingVertical: 4, minWidth: 160, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 8 },
+  friendGenreDropItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10 },
+  friendGenreDropItemActive: { backgroundColor: 'rgba(229,9,20,0.08)' },
+  friendGenreDropText: { color: colors.text, fontSize: 13, fontWeight: '600' },
 });

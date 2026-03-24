@@ -332,14 +332,27 @@ export async function getMovieListPaginated(
   pageSize: number = 20,
   lastDoc?: QueryDocumentSnapshot,
 ): Promise<{ movies: MovieActivity[]; lastDoc: QueryDocumentSnapshot | null }> {
-  const constraints: any[] = [where(listType, '==', true), orderBy('updatedAt', 'desc'), limit(pageSize)];
-  if (lastDoc) constraints.push(startAfter(lastDoc));
-  const q = query(collection(db, 'users', userId, 'movies'), ...constraints);
-  const snap = await getDocs(q);
-  return {
-    movies: snap.docs.map(d => d.data() as MovieActivity),
-    lastDoc: snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null,
-  };
+  try {
+    const constraints: any[] = [where(listType, '==', true), orderBy('updatedAt', 'desc'), limit(pageSize)];
+    if (lastDoc) constraints.push(startAfter(lastDoc));
+    const q = query(collection(db, 'users', userId, 'movies'), ...constraints);
+    const snap = await getDocs(q);
+    return {
+      movies: snap.docs.map(d => d.data() as MovieActivity),
+      lastDoc: snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null,
+    };
+  } catch {
+    // Fallback without orderBy if composite index is missing
+    const constraints: any[] = [where(listType, '==', true), limit(pageSize)];
+    const q = query(collection(db, 'users', userId, 'movies'), ...constraints);
+    const snap = await getDocs(q);
+    const movies = snap.docs.map(d => d.data() as MovieActivity)
+      .sort((a, b) => (b.updatedAt?.toMillis?.() ?? 0) - (a.updatedAt?.toMillis?.() ?? 0));
+    return {
+      movies,
+      lastDoc: snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null,
+    };
+  }
 }
 
 export async function updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<void> {

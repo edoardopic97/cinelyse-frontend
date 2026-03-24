@@ -16,7 +16,6 @@ import { getSearchCount, acceptFriendRequest, rejectFriendRequest, deleteNotific
 import ProfileRing, { getTier } from '../components/ProfileRing';
 
 import MovieCard from '../components/MovieCard';
-import SharedMovieModal from '../components/SharedMovieModal';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -519,8 +518,6 @@ export default function DiscoverScreen() {
             </ScrollView>
           )}
         </View>
-
-        <SharedMovieModal />
 
         {/* Notifications Modal (outside Pressable is fine — it's a Modal) */}
         <Modal visible={showNotifs} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowNotifs(false)}>

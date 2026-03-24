@@ -7,6 +7,7 @@ import { SharedMovieProvider, useSharedMovie } from '../contexts/SharedMovieCont
 import LoginScreen from '../screens/LoginScreen';
 import VerifyEmailScreen from '../screens/VerifyEmailScreen';
 import TabNavigator from './TabNavigator';
+import SharedMovieModal from '../components/SharedMovieModal';
 import { colors } from '../theme/colors';
 import api from '../api/client';
 
@@ -107,6 +108,7 @@ export default function RootNavigator() {
             <Stack.Screen name="Login" component={LoginScreen} />
           )}
         </Stack.Navigator>
+        <SharedMovieModal />
       </NavigationContainer>
     </SharedMovieProvider>
   );

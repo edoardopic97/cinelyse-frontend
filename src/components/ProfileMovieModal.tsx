@@ -128,9 +128,10 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false }: 
 
             {m.tmdbID && <SimilarMovies tmdbID={m.tmdbID} type={m.type} />}
 
-            {readOnly && user?.uid && (
+            {/* Activity buttons — always show for logged-in user */}
+            {user?.uid && (
               <View style={s.activitySection}>
-                <Text style={s.detailLabel}>Your Activity</Text>
+                <Text style={s.detailLabel}>{readOnly ? 'Your Activity' : 'Actions'}</Text>
                 <MovieActivityButtons movie={{
                   movieId: m.movieId,
                   title: m.title,

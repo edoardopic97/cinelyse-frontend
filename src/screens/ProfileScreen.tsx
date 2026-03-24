@@ -164,6 +164,7 @@ export default function ProfileScreen() {
   );
 
   const [showSortDrop, setShowSortDrop] = useState(false);
+  const [showGenreDrop, setShowGenreDrop] = useState(false);
 
   const SORT_OPTIONS: { value: Sort; label: string; icon: string }[] = [
     { value: 'date', label: 'Recent', icon: 'time-outline' },
@@ -186,7 +187,7 @@ export default function ProfileScreen() {
         </View>
         <View style={s.filterActions}>
           <View style={{ position: 'relative', zIndex: 99 }}>
-            <TouchableOpacity style={s.sortBtn} onPress={() => setShowSortDrop(!showSortDrop)}>
+            <TouchableOpacity style={s.sortBtn} onPress={() => { setShowSortDrop(!showSortDrop); setShowGenreDrop(false); }}>
               <Text style={s.sortLabel}>Sort by</Text>
               <Ionicons name={SORT_OPTIONS.find(o => o.value === opts.sort)!.icon as any} size={14} color={colors.red} />
               <Text style={s.sortText}>{SORT_OPTIONS.find(o => o.value === opts.sort)!.label}</Text>
@@ -204,18 +205,37 @@ export default function ProfileScreen() {
               </View>
             )}
           </View>
+          {opts.genres.length > 0 && (
+            <View style={{ position: 'relative', zIndex: 98 }}>
+              <TouchableOpacity style={[s.sortBtn, opts.genre !== 'all' && { borderColor: 'rgba(229,9,20,0.4)' }]} onPress={() => { setShowGenreDrop(!showGenreDrop); setShowSortDrop(false); }}>
+                <Ionicons name="film-outline" size={14} color={opts.genre !== 'all' ? colors.red : colors.muted} />
+                <Text style={[s.sortText, opts.genre !== 'all' && { color: colors.red }]}>{opts.genre === 'all' ? 'Genre' : opts.genre}</Text>
+                <Ionicons name="chevron-down" size={12} color={colors.subtle} />
+              </TouchableOpacity>
+              {showGenreDrop && (
+                <View style={s.genreDropdown}>
+                  <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator nestedScrollEnabled>
+                    <TouchableOpacity style={[s.sortDropItem, opts.genre === 'all' && s.sortDropItemActive]} onPress={() => { opts.setGenre('all'); setShowGenreDrop(false); }}>
+                      <Text style={[s.sortDropText, opts.genre === 'all' && { color: colors.red }]}>All Genres</Text>
+                      {opts.genre === 'all' && <Ionicons name="checkmark" size={14} color={colors.red} style={{ marginLeft: 'auto' }} />}
+                    </TouchableOpacity>
+                    {opts.genres.map(g => (
+                      <TouchableOpacity key={g} style={[s.sortDropItem, opts.genre === g && s.sortDropItemActive]} onPress={() => { opts.setGenre(g); setShowGenreDrop(false); }}>
+                        <Text style={[s.sortDropText, opts.genre === g && { color: colors.red }]}>{g}</Text>
+                        {opts.genre === g && <Ionicons name="checkmark" size={14} color={colors.red} style={{ marginLeft: 'auto' }} />}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          )}
           <View style={s.viewToggle}>
             <TouchableOpacity style={[s.viewBtn, opts.viewMode === 'grid' && s.viewBtnActive]} onPress={() => opts.setViewMode('grid')}><Ionicons name="grid-outline" size={14} color={opts.viewMode === 'grid' ? colors.red : colors.subtle} /></TouchableOpacity>
             <TouchableOpacity style={[s.viewBtn, opts.viewMode === 'list' && s.viewBtnActive]} onPress={() => opts.setViewMode('list')}><Ionicons name="list-outline" size={14} color={opts.viewMode === 'list' ? colors.red : colors.subtle} /></TouchableOpacity>
           </View>
         </View>
       </View>
-      {opts.genres.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.genreScroll}>
-          <TouchableOpacity style={[s.genrePill, opts.genre === 'all' && s.genrePillActive]} onPress={() => opts.setGenre('all')}><Text style={[s.genrePillText, opts.genre === 'all' && s.genrePillTextActive]}>All</Text></TouchableOpacity>
-          {opts.genres.map(g => <TouchableOpacity key={g} style={[s.genrePill, opts.genre === g && s.genrePillActive]} onPress={() => opts.setGenre(g)}><Text style={[s.genrePillText, opts.genre === g && s.genrePillTextActive]}>{g}</Text></TouchableOpacity>)}
-        </ScrollView>
-      )}
       <Text style={s.countText}>{opts.count} film{opts.count !== 1 ? 's' : ''}</Text>
     </>
   );
@@ -291,7 +311,7 @@ export default function ProfileScreen() {
         {/* Tabs */}
         <View style={s.tabRow}>
           {tabs.map(t => (
-            <TouchableOpacity key={t.id} style={[s.tab, tab === t.id && s.tabActive]} onPress={() => { setTab(t.id); setShowSortDrop(false); }}>
+            <TouchableOpacity key={t.id} style={[s.tab, tab === t.id && s.tabActive]} onPress={() => { setTab(t.id); setShowSortDrop(false); setShowGenreDrop(false); }}>
               <Ionicons name={t.icon as any} size={16} color={tab === t.id ? colors.white : colors.subtle} />
               <Text style={[s.tabText, tab === t.id && s.tabTextActive]}>{t.label}</Text>
 
@@ -502,11 +522,7 @@ const s = StyleSheet.create({
   viewToggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 8, padding: 3 },
   viewBtn: { padding: 6, borderRadius: 5 },
   viewBtnActive: { backgroundColor: 'rgba(229,9,20,0.2)' },
-  genreScroll: { gap: 6, marginBottom: 10 },
-  genrePill: { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 99, paddingHorizontal: 12, paddingVertical: 6 },
-  genrePillActive: { borderColor: colors.red, backgroundColor: 'rgba(229,9,20,0.15)' },
-  genrePillText: { color: colors.muted, fontSize: 12, fontWeight: '600' },
-  genrePillTextActive: { color: colors.red },
+  genreDropdown: { position: 'absolute', top: 42, right: 0, zIndex: 998, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 10, paddingVertical: 4, minWidth: 160, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 8 },
   countText: { color: colors.subtle, fontSize: 12, fontWeight: '600', marginBottom: 10, textAlign: 'right' },
   // Mini grid card
   miniCard: { width: GRID_W, borderRadius: 10, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },

@@ -15,7 +15,11 @@ const SharedMovieContext = createContext<SharedMovieContextType>({
 
 export function SharedMovieProvider({ children }: { children: React.ReactNode }) {
   const [sharedMovie, setSharedMovie] = useState<MovieResult | null>(null);
-  const openSharedMovie = useCallback((movie: MovieResult) => setSharedMovie(movie), []);
+  const openSharedMovie = useCallback((movie: MovieResult) => {
+    // Force re-mount by clearing first, then setting on next tick
+    setSharedMovie(null);
+    setTimeout(() => setSharedMovie(movie), 0);
+  }, []);
   const clearSharedMovie = useCallback(() => setSharedMovie(null), []);
 
   return (
