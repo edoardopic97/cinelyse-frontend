@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { getGenreColor } from '../theme/genreColors';
 import { useSharedMovie } from '../contexts/SharedMovieContext';
+import { SHARE_BASE } from '../api/client';
 import MovieActivityButtons from './MovieActivityButtons';
 import SimilarMovies from './SimilarMovies';
 import WatchProviders from './WatchProviders';
@@ -23,7 +24,7 @@ export default function SharedMovieModal() {
   const hasPoster = movie.Poster && movie.Poster !== 'N/A' && movie.Poster !== '';
 
   const handleShare = () => {
-    const url = movie.tmdbID ? `https://backend-eta-ochre-46.vercel.app/movie/${movie.tmdbID}${movie.Type === 'series' ? '?type=tv' : ''}` : '';
+    const url = movie.tmdbID ? `${SHARE_BASE}/movie/${movie.tmdbID}${movie.Type === 'series' ? '?type=tv' : ''}` : '';
     const lines = [`🎬 ${movie.Title}${movie.Year ? ` (${movie.Year})` : ''}`];
     if (rating > 0) lines.push(`⭐ ${rating.toFixed(1)} TMDB`);
     if (movie.Genre) lines.push(movie.Genre);

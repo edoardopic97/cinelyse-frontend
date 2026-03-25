@@ -4,6 +4,7 @@ import {
   limit, startAfter, orderBy, type QueryDocumentSnapshot, increment,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { API_BASE } from '../api/client';
 
 export interface UserProfile {
   uid: string;
@@ -416,7 +417,7 @@ export async function addNotification(userId: string, type: AppNotification['typ
   const token = await auth.currentUser?.getIdToken().catch(() => null);
   if (token) {
     try {
-      const res = await fetch('https://backend-eta-ochre-46.vercel.app/api/notify', {
+      const res = await fetch(`${API_BASE}/api/notify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ userId, type, message, extra }),

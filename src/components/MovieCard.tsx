@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, Image, TouchableOpacity, StyleSheet, Dimensions, Modal,
-  ScrollView, Linking, Share, ActivityIndicator,
+  ScrollView, Linking, Share, ActivityIndicator, PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { getGenreColor } from '../theme/genreColors';
 import { fetchMovieDetails, type MovieResult } from '../api/client';
+import { SHARE_BASE } from '../api/client';
 import MovieActivityButtons from './MovieActivityButtons';
 import SimilarMovies from './SimilarMovies';
 import WatchProviders from './WatchProviders';
@@ -47,8 +48,23 @@ export default function MovieCard({ movie, allMovies = [], currentIndex = 0 }: P
       .finally(() => setLoadingDetails(false));
   }, [expanded, rawCurrent.tmdbID]);
 
+  const indexRef = useRef(displayIndex);
+  const allRef = useRef(allMovies);
+  indexRef.current = displayIndex;
+  allRef.current = allMovies;
+
   const goNext = () => { if (displayIndex < allMovies.length - 1) setDisplayIndex(displayIndex + 1); };
   const goPrev = () => { if (displayIndex > 0) setDisplayIndex(displayIndex - 1); };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 15,
+      onPanResponderRelease: (_, g) => {
+        if (g.dx < -50 && indexRef.current < allRef.current.length - 1) setDisplayIndex(indexRef.current + 1);
+        else if (g.dx > 50 && indexRef.current > 0) setDisplayIndex(indexRef.current - 1);
+      },
+    })
+  ).current;
 
   return (
     <>
@@ -74,7 +90,7 @@ export default function MovieCard({ movie, allMovies = [], currentIndex = 0 }: P
         <View style={[s.modal, { paddingTop: insets.top }]}>
           <ScrollView bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
             {/* Poster */}
-            <View style={s.modalPoster}>
+            <View style={s.modalPoster} {...(allMovies.length > 1 ? panResponder.panHandlers : {})}>
               {hasPoster ? (
                 <Image source={{ uri: current.Poster }} style={s.modalPosterImg} />
               ) : (
@@ -116,7 +132,7 @@ export default function MovieCard({ movie, allMovies = [], currentIndex = 0 }: P
                 <Text style={[s.title, { flex: 1 }]}>{current.Title}</Text>
                 <TouchableOpacity style={s.shareBtn} onPress={() => {
                   const r = parseFloat(current.tmdbRating || '0');
-                  const url = current.tmdbID ? `https://backend-eta-ochre-46.vercel.app/movie/${current.tmdbID}${current.Type === 'series' ? '?type=tv' : ''}` : '';
+                  const url = current.tmdbID ? `${SHARE_BASE}/movie/${current.tmdbID}${current.Type === 'series' ? '?type=tv' : ''}` : '';
                   const lines = [`🎬 ${current.Title}${current.Year ? ` (${current.Year})` : ''}`];
                   if (r > 0) lines.push(`⭐ ${r.toFixed(1)} TMDB`);
                   if (current.Genre && current.Genre !== 'N/A') lines.push(current.Genre);

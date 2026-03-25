@@ -1,7 +1,12 @@
 import axios from 'axios';
 import { auth } from '../lib/firebase';
+import { API_BASE_URL } from '@env';
 
-const API_BASE = 'https://backend-eta-ochre-46.vercel.app';
+const API_BASE = API_BASE_URL || 'https://backend-eta-ochre-46.vercel.app';
+
+export const SHARE_BASE = 'https://share.cinelyse.com';
+
+export { API_BASE };
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const token = await auth.currentUser?.getIdToken();

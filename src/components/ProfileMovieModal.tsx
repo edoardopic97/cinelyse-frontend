@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Modal, ScrollView, Linking, Share, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Modal, ScrollView, Linking, Share, Alert, ActivityIndicator, PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { getGenreColor } from '../theme/genreColors';
 import { useAuth } from '../contexts/AuthContext';
 import { removeMovieFromWatched, removeMovieFromToWatch, removeMovieFromFavorites, setMovieActivity, type MovieActivity } from '../lib/firestore';
-import { fetchMovieDetails } from '../api/client';
+import { fetchMovieDetails, SHARE_BASE } from '../api/client';
 import MovieActivityButtons, { type MovieData } from './MovieActivityButtons';
 import SimilarMovies from './SimilarMovies';
 import WatchProviders from './WatchProviders';
@@ -16,46 +16,94 @@ interface Props {
   movie: MovieActivity | null;
   onClose: () => void;
   readOnly?: boolean;
+  allMovies?: MovieActivity[];
+  currentIndex?: number;
+  onChangeIndex?: (index: number) => void;
 }
 
-export default function ProfileMovieModal({ movie, onClose, readOnly = false }: Props) {
+export default function ProfileMovieModal({ movie, onClose, readOnly = false, allMovies = [], currentIndex = 0, onChangeIndex }: Props) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [removing, setRemoving] = useState(false);
   const [enriched, setEnriched] = useState<MovieActivity | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [displayIndex, setDisplayIndex] = useState(currentIndex);
+
+  useEffect(() => { setDisplayIndex(Math.max(0, currentIndex)); }, [currentIndex]);
+
+  const activeMovie = movie && allMovies.length > 0 ? allMovies[displayIndex] ?? movie : movie;
+
+  const indexRef = useRef(displayIndex);
+  const allRef = useRef(allMovies);
+  indexRef.current = displayIndex;
+  allRef.current = allMovies;
+
+  const onChangeRef = useRef(onChangeIndex);
+  onChangeRef.current = onChangeIndex;
+
+  const goNext = () => {
+    if (displayIndex < allMovies.length - 1) {
+      const next = displayIndex + 1;
+      setDisplayIndex(next);
+      onChangeRef.current?.(next);
+    }
+  };
+  const goPrev = () => {
+    if (displayIndex > 0) {
+      const prev = displayIndex - 1;
+      setDisplayIndex(prev);
+      onChangeRef.current?.(prev);
+    }
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 15,
+      onPanResponderRelease: (_, g) => {
+        if (g.dx < -50 && indexRef.current < allRef.current.length - 1) {
+          const next = indexRef.current + 1;
+          setDisplayIndex(next);
+          onChangeRef.current?.(next);
+        } else if (g.dx > 50 && indexRef.current > 0) {
+          const prev = indexRef.current - 1;
+          setDisplayIndex(prev);
+          onChangeRef.current?.(prev);
+        }
+      },
+    })
+  ).current;
 
   useEffect(() => {
     setEnriched(null);
-    if (!movie?.tmdbID) return;
-    const needsEnrich = !movie.plot && !movie.director && !movie.actors;
+    if (!activeMovie?.tmdbID) return;
+    const needsEnrich = !activeMovie.plot && !activeMovie.director && !activeMovie.actors;
     if (!needsEnrich) return;
     setLoadingDetails(true);
-    fetchMovieDetails(movie.tmdbID, movie.type || 'movie')
+    fetchMovieDetails(activeMovie.tmdbID, activeMovie.type || 'movie')
       .then(details => {
         setEnriched({
-          ...movie,
-          plot: movie.plot || details.Plot || undefined,
-          director: movie.director || details.Director || undefined,
-          actors: movie.actors || details.Actors || undefined,
-          runtime: movie.runtime || details.Runtime || undefined,
-          language: movie.language || details.Language || undefined,
-          country: movie.country || details.Country || undefined,
-          rated: movie.rated || details.Rated || undefined,
-          backdrop: movie.backdrop || details.Backdrop || undefined,
-          tagline: movie.tagline || details.Tagline || undefined,
-          poster: movie.poster || details.Poster || undefined,
-          genres: movie.genres?.length ? movie.genres : (details.Genre ? details.Genre.split(',').map((g: string) => g.trim()) : []),
-          tmdbRating: movie.tmdbRating || details.tmdbRating || undefined,
-          year: movie.year || details.Year || undefined,
+          ...activeMovie,
+          plot: activeMovie.plot || details.Plot || undefined,
+          director: activeMovie.director || details.Director || undefined,
+          actors: activeMovie.actors || details.Actors || undefined,
+          runtime: activeMovie.runtime || details.Runtime || undefined,
+          language: activeMovie.language || details.Language || undefined,
+          country: activeMovie.country || details.Country || undefined,
+          rated: activeMovie.rated || details.Rated || undefined,
+          backdrop: activeMovie.backdrop || details.Backdrop || undefined,
+          tagline: activeMovie.tagline || details.Tagline || undefined,
+          poster: activeMovie.poster || details.Poster || undefined,
+          genres: activeMovie.genres?.length ? activeMovie.genres : (details.Genre ? details.Genre.split(',').map((g: string) => g.trim()) : []),
+          tmdbRating: activeMovie.tmdbRating || details.tmdbRating || undefined,
+          year: activeMovie.year || details.Year || undefined,
         });
       })
       .catch(() => {})
       .finally(() => setLoadingDetails(false));
-  }, [movie?.movieId]);
+  }, [activeMovie?.movieId]);
 
   if (!movie) return null;
-  const m = enriched || movie;
+  const m = enriched || activeMovie || movie;
   const genres = m.genres || [];
   const tmdbRating = parseFloat(m.tmdbRating || '0');
 
@@ -64,11 +112,24 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false }: 
       <View style={[s.container, { paddingTop: insets.top }]}>
         <ScrollView bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
           {/* Poster */}
-          <View style={s.posterWrap}>
+          <View style={s.posterWrap} {...(allMovies.length > 1 ? panResponder.panHandlers : {})}>
             {m.poster ? <Image source={{ uri: m.poster }} style={s.poster} /> : (
               <View style={s.noPoster}><Ionicons name="film-outline" size={64} color="rgba(255,255,255,0.15)" /></View>
             )}
+            {allMovies.length > 1 && displayIndex > 0 && (
+              <TouchableOpacity style={[s.navBtn, s.navPrev]} onPress={goPrev}>
+                <Ionicons name="chevron-back" size={22} color={colors.white} />
+              </TouchableOpacity>
+            )}
+            {allMovies.length > 1 && displayIndex < allMovies.length - 1 && (
+              <TouchableOpacity style={[s.navBtn, s.navNext]} onPress={goNext}>
+                <Ionicons name="chevron-forward" size={22} color={colors.white} />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={s.closeBtn} onPress={onClose}><Ionicons name="close" size={22} color="#fff" /></TouchableOpacity>
+            {allMovies.length > 1 && (
+              <View style={s.counter}><Text style={s.counterText}>{displayIndex + 1} / {allMovies.length}</Text></View>
+            )}
           </View>
           <View style={s.info}>
             {loadingDetails && (
@@ -81,7 +142,7 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false }: 
             <View style={s.titleRow}>
               <Text style={[s.title, { flex: 1 }]}>{m.title}</Text>
               <TouchableOpacity style={s.shareBtn} onPress={() => {
-                const url = m.tmdbID ? `https://backend-eta-ochre-46.vercel.app/movie/${m.tmdbID}` : '';
+                const url = m.tmdbID ? `${SHARE_BASE}/movie/${m.tmdbID}` : '';
                 const lines = [`🎬 ${m.title}${m.year ? ` (${m.year})` : ''}`];
                 if (tmdbRating > 0) lines.push(`⭐ ${tmdbRating.toFixed(1)} TMDB`);
                 if (genres.length) lines.push(genres.join(', '));
@@ -154,14 +215,14 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false }: 
               </View>
             )}
 
-            {!readOnly && user?.uid && (movie.watched || movie.toWatch || movie.favorite) && (
+            {!readOnly && user?.uid && (activeMovie.watched || activeMovie.toWatch || activeMovie.favorite) && (
               <View style={s.removeSection}>
-                {movie.toWatch && !movie.watched && (
+                {activeMovie.toWatch && !activeMovie.watched && (
                   <>
                     <Text style={s.detailLabel}>Actions</Text>
                     <TouchableOpacity style={s.watchedBtn} disabled={removing} onPress={async () => {
                       setRemoving(true);
-                      await setMovieActivity(user.uid, movie.movieId, { ...movie, watched: true, toWatch: false }).catch(() => {});
+                      await setMovieActivity(user.uid, activeMovie.movieId, { ...activeMovie, watched: true, toWatch: false }).catch(() => {});
                       setRemoving(false);
                       onClose();
                     }}>
@@ -170,35 +231,35 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false }: 
                     </TouchableOpacity>
                   </>
                 )}
-                <Text style={[s.detailLabel, movie.toWatch && !movie.watched && { marginTop: 16 }]}>Remove From</Text>
+                <Text style={[s.detailLabel, activeMovie.toWatch && !activeMovie.watched && { marginTop: 16 }]}>Remove From</Text>
                 <View style={s.removeRow}>
-                  {movie.watched && (
+                  {activeMovie.watched && (
                     <TouchableOpacity style={s.removeBtn} disabled={removing} onPress={() => {
                       Alert.alert('Remove', 'Remove from Watched?', [
                         { text: 'Cancel', style: 'cancel' },
-                        { text: 'Remove', style: 'destructive', onPress: async () => { setRemoving(true); await removeMovieFromWatched(user.uid, movie.movieId).catch(() => {}); setRemoving(false); onClose(); }},
+                        { text: 'Remove', style: 'destructive', onPress: async () => { setRemoving(true); await removeMovieFromWatched(user.uid, activeMovie.movieId).catch(() => {}); setRemoving(false); onClose(); }},
                       ]);
                     }}>
                       <Ionicons name="eye-off-outline" size={14} color={colors.red} />
                       <Text style={s.removeBtnText}>Watched</Text>
                     </TouchableOpacity>
                   )}
-                  {movie.toWatch && (
+                  {activeMovie.toWatch && (
                     <TouchableOpacity style={s.removeBtn} disabled={removing} onPress={() => {
                       Alert.alert('Remove', 'Remove from Watchlist?', [
                         { text: 'Cancel', style: 'cancel' },
-                        { text: 'Remove', style: 'destructive', onPress: async () => { setRemoving(true); await removeMovieFromToWatch(user.uid, movie.movieId).catch(() => {}); setRemoving(false); onClose(); }},
+                        { text: 'Remove', style: 'destructive', onPress: async () => { setRemoving(true); await removeMovieFromToWatch(user.uid, activeMovie.movieId).catch(() => {}); setRemoving(false); onClose(); }},
                       ]);
                     }}>
                       <Ionicons name="bookmark-outline" size={14} color={colors.red} />
                       <Text style={s.removeBtnText}>Watchlist</Text>
                     </TouchableOpacity>
                   )}
-                  {movie.favorite && (
+                  {activeMovie.favorite && (
                     <TouchableOpacity style={s.removeBtn} disabled={removing} onPress={() => {
                       Alert.alert('Remove', 'Remove from Favorites?', [
                         { text: 'Cancel', style: 'cancel' },
-                        { text: 'Remove', style: 'destructive', onPress: async () => { setRemoving(true); await removeMovieFromFavorites(user.uid, movie.movieId).catch(() => {}); setRemoving(false); onClose(); }},
+                        { text: 'Remove', style: 'destructive', onPress: async () => { setRemoving(true); await removeMovieFromFavorites(user.uid, activeMovie.movieId).catch(() => {}); setRemoving(false); onClose(); }},
                       ]);
                     }}>
                       <Ionicons name="heart-dislike-outline" size={14} color={colors.red} />
@@ -221,6 +282,11 @@ const s = StyleSheet.create({
   poster: { width: '100%', height: '100%', resizeMode: 'cover' },
   noPoster: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
   closeBtn: { position: 'absolute', top: 12, right: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+  navBtn: { position: 'absolute', top: '45%', width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+  navPrev: { left: 12 },
+  navNext: { right: 12 },
+  counter: { position: 'absolute', bottom: 12, right: 12, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99 },
+  counterText: { color: colors.muted, fontSize: 12, fontWeight: '600' },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   shareBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   info: { padding: 20, paddingBottom: 60 },

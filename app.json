@@ -31,7 +31,7 @@
           "data": [
             {
               "scheme": "https",
-              "host": "backend-eta-ochre-46.vercel.app",
+              "host": "share.cinelyse.com",
               "pathPrefix": "/movie"
             }
           ],
@@ -61,7 +61,8 @@
           "color": "#E50914"
         }
       ],
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "expo-localization"
     ],
     "extra": {
       "eas": {

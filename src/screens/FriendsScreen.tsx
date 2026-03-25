@@ -589,7 +589,14 @@ export default function FriendsScreen() {
         </SafeAreaView>
       </Modal>
 
-      <ProfileMovieModal movie={selectedFriendMovie} onClose={() => setSelectedFriendMovie(null)} readOnly />
+      <ProfileMovieModal
+        movie={selectedFriendMovie}
+        onClose={() => setSelectedFriendMovie(null)}
+        readOnly
+        allMovies={filterByGenre(friendTab === 'watched' ? friendWatched : friendTab === 'watchlist' ? friendWatchlist : friendFavs, friendGenre)}
+        currentIndex={selectedFriendMovie ? filterByGenre(friendTab === 'watched' ? friendWatched : friendTab === 'watchlist' ? friendWatchlist : friendFavs, friendGenre).findIndex(m => m.movieId === selectedFriendMovie.movieId) : 0}
+        onChangeIndex={(i) => { const list = filterByGenre(friendTab === 'watched' ? friendWatched : friendTab === 'watchlist' ? friendWatchlist : friendFavs, friendGenre); setSelectedFriendMovie(list[i] || null); }}
+      />
     </View>
   );
 }

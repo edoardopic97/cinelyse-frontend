@@ -431,7 +431,13 @@ export default function ProfileScreen() {
       </ScrollView>
 
       <EditProfileModal visible={editVisible} onClose={() => setEditVisible(false)} onSaved={() => {}} />
-      <ProfileMovieModal movie={selectedMovie} onClose={() => setSelectedMovie(null)} />
+      <ProfileMovieModal
+        movie={selectedMovie}
+        onClose={() => setSelectedMovie(null)}
+        allMovies={tab === 'watchlist' ? filteredWl : tab === 'favorites' ? filteredFav : filtered}
+        currentIndex={selectedMovie ? (tab === 'watchlist' ? filteredWl : tab === 'favorites' ? filteredFav : filtered).findIndex(m => m.movieId === selectedMovie.movieId) : 0}
+        onChangeIndex={(i) => { const list = tab === 'watchlist' ? filteredWl : tab === 'favorites' ? filteredFav : filtered; setSelectedMovie(list[i] || null); }}
+      />
 
       {/* Tier Info Modal */}
       <Modal visible={showTierInfo} transparent animationType="fade" onRequestClose={() => setShowTierInfo(false)}>
