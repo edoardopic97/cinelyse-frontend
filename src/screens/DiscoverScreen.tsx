@@ -510,7 +510,7 @@ export default function DiscoverScreen() {
         </View>
 
         {/* ── Bottom section: Recommendations (AI) or Trending (Title Search) ── */}
-        <View style={{ flex: 1, paddingHorizontal: 22 }}>
+        <View style={{ paddingHorizontal: 22, paddingBottom: 120 }}>
           {aiMode ? (
             !premiumUnlocked ? (
               <PremiumPicksSection onUnlock={() => setPremiumUnlocked(true)} />
@@ -830,7 +830,7 @@ const g = StyleSheet.create({
 
 /** PremiumPicksSection styles */
 const p = StyleSheet.create({
-  wrapper: { flex: 1 },
+  wrapper: { marginBottom: 100 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: 10,
@@ -967,7 +967,7 @@ const s = StyleSheet.create({
   historyText: { color: colors.muted, fontSize: 14, fontWeight: '500' },
   trendingHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   trendingTitle: { color: colors.white, fontSize: 15, fontWeight: '700' },
-  recEmpty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 48, paddingHorizontal: 24, backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', borderRadius: 16 },
+  recEmpty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 32, paddingHorizontal: 24, backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', borderRadius: 16 },
   recEmptyTitle: { color: colors.muted, fontSize: 15, fontWeight: '700', marginTop: 12 },
   recEmptySub: { color: colors.subtle, fontSize: 13, textAlign: 'center', marginTop: 6, maxWidth: 260, lineHeight: 20 },
   recEmptyInline: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 20, paddingHorizontal: 16, backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', borderRadius: 12 },

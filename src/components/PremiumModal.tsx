@@ -17,7 +17,7 @@ interface Props {
 const PERKS = [
   { icon: 'flash', color: colors.gold, title: '15 AI Credits / Day', sub: 'Up from 3 — search 5x more with AI' },
   { icon: 'heart', color: '#ff6b6b', title: 'Personalized Picks', sub: 'Recommendations based on your taste' },
-  { icon: 'sparkles', color: '#a78bfa', title: 'Priority Access', sub: 'Faster responses, no waiting in queue' },
+  { icon: 'bar-chart', color: '#a78bfa', title: 'Profile Stats', sub: 'Genre breakdown, ratings & activity insights' },
   { icon: 'infinite', color: '#4ade80', title: 'Unlimited Title Search', sub: 'Search by title with no daily limits' },
   { icon: 'star', color: colors.gold, title: 'Early Features', sub: 'Be the first to try new features' },
 ];
