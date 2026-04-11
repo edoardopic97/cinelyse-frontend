@@ -16,6 +16,7 @@ import ProfileMovieModal from '../components/ProfileMovieModal';
 import ProfileRing, { getTier, getNextTier, TIER_META, type Tier } from '../components/ProfileRing';
 
 const { width: SW } = Dimensions.get('window');
+
 const GRID_COLS = 3;
 const GRID_GAP = 8;
 const GRID_W = (SW - 32 - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS;
@@ -49,6 +50,7 @@ export default function ProfileScreen() {
   const [searchCount, setSearchCount] = useState(0);
   const [friendsCount, setFriendsCount] = useState(0);
   const [showTierInfo, setShowTierInfo] = useState(false);
+  const [statsUnlocked, setStatsUnlocked] = useState(false);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -339,7 +341,76 @@ export default function ProfileScreen() {
               {renderMovieList(filteredFav)}
             </>
           )}
-          {tab === 'stats' && (() => {
+          {tab === 'stats' && !statsUnlocked && (
+            <View style={ps.wrapper}>
+              <View style={ps.gridContainer}>
+                {/* Ghost: mirrors actual stats layout */}
+                <View style={{ opacity: 0.55, gap: 16 }}>
+                  {/* Ghost tier card */}
+                  <View style={s.card}>
+                    <View style={{ alignItems: 'center', gap: 10 }}>
+                      <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.08)' }} />
+                      <View style={{ width: 100, height: 14, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                      <View style={{ width: 160, height: 10, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.06)' }} />
+                      <View style={{ width: '100%', height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 99 }} />
+                    </View>
+                  </View>
+                  {/* Ghost genres card */}
+                  <View style={s.card}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                      <View style={{ width: 15, height: 15, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                      <View style={{ width: 90, height: 12, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                    </View>
+                    {[0.9, 0.7, 0.55, 0.4, 0.25].map((w, i) => (
+                      <View key={i} style={{ marginBottom: 12 }}>
+                        <View style={{ width: 70, height: 10, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 4 }} />
+                        <View style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 99, overflow: 'hidden' }}>
+                          <View style={{ width: `${w * 100}%`, height: '100%', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 99 }} />
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                  {/* Ghost activity card */}
+                  <View style={s.card}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                      <View style={{ width: 15, height: 15, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                      <View style={{ width: 120, height: 12, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                    </View>
+                    {[1, 2, 3, 4].map(i => (
+                      <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                        <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                        <View style={{ flex: 1, height: 10, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.06)' }} />
+                        <View style={{ width: 28, height: 14, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                      </View>
+                    ))}
+                  </View>
+                </View>
+                {/* Lock overlay */}
+                <View style={ps.overlay}>
+                  <View style={ps.lockCircle}>
+                    <Ionicons name="lock-closed" size={22} color={colors.red} />
+                  </View>
+                  <Text style={ps.overlayTitle}>{'Unlock Your Viewing\nInsights'}</Text>
+                  <Text style={ps.overlaySub}>Your stats are ready. See your genres, ratings, and activity — upgrade to Premium.</Text>
+                  <TouchableOpacity style={ps.unlockBtn} onPress={() => setStatsUnlocked(true)} activeOpacity={0.85}>
+                    <LinearGradient colors={['#c0392b', '#e74c3c']} style={ps.unlockGradient}>
+                      <Text style={ps.unlockStar}>✦</Text>
+                      <Text style={ps.unlockText}>Unlock with Premium</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                  <View style={ps.perks}>
+                    {['Detailed genre breakdown', 'Personal rating analytics', 'Full activity overview'].map((perk, i) => (
+                      <View key={i} style={ps.perkRow}>
+                        <View style={ps.perkDot} />
+                        <Text style={ps.perkText}>{perk}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
+          {tab === 'stats' && statsUnlocked && (() => {
             const tier = getTier(searchCount);
             const { next, needed } = getNextTier(tier);
             const tierMeta = TIER_META[tier];
@@ -487,8 +558,8 @@ const s = StyleSheet.create({
   // Header card
   // Header card
   headerCard: { marginHorizontal: 16, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.02)', marginBottom: 16 },
-  banner: { height: 100 },
-  headerBody: { padding: 16, marginTop: -40 },
+  banner: { height: 50 },
+  headerBody: { padding: 16, marginTop: -30 },
   avatarRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginBottom: 16 },
   avatarInner: { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(229,9,20,0.2)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   tierRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
@@ -577,4 +648,30 @@ const s = StyleSheet.create({
   tierInfoReq: { color: colors.subtle, fontSize: 11, marginTop: 1 },
   tierInfoBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 },
   tierInfoBadgeText: { color: colors.white, fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+});
+
+const ps = StyleSheet.create({
+  wrapper: { flex: 1 },
+  gridContainer: { position: 'relative', overflow: 'hidden', borderRadius: 14 },
+
+  overlay: {
+    position: 'absolute', inset: 0, backgroundColor: 'rgba(13,2,4,0.80)',
+    borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 16, paddingHorizontal: 20, gap: 10,
+  },
+  lockCircle: {
+    width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(229,9,20,0.12)',
+    borderWidth: 1.5, borderColor: 'rgba(229,9,20,0.45)',
+    alignItems: 'center', justifyContent: 'center', marginBottom: 2,
+  },
+  overlayTitle: { fontSize: 16, fontWeight: '700', color: '#fff', textAlign: 'center', lineHeight: 22 },
+  overlaySub: { fontSize: 12, color: 'rgba(255,255,255,0.42)', textAlign: 'center', lineHeight: 18, maxWidth: 230 },
+  unlockBtn: { borderRadius: 12, overflow: 'hidden', marginTop: 4 },
+  unlockGradient: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 24, paddingVertical: 12 },
+  unlockStar: { color: '#fff', fontSize: 12 },
+  unlockText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  perks: { gap: 6, marginTop: 4, alignSelf: 'flex-start', paddingLeft: 16 },
+  perkRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  perkDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: 'rgba(229,9,20,0.7)' },
+  perkText: { color: 'rgba(255,255,255,0.45)', fontSize: 11 },
 });

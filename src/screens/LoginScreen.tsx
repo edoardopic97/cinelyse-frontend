@@ -7,7 +7,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, updateProfile, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { auth } from '../lib/firebase';
 import { setUserProfile, checkUsernameExists, getUserProfile } from '../lib/firestore';
@@ -107,8 +107,12 @@ export default function LoginScreen() {
         const exists = await checkUsernameExists(username);
         if (exists) { Alert.alert('Error', 'Username already taken'); setLoading(false); return; }
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+        await updateProfile(cred.user, { displayName: username.trim() });
         await setUserProfile(cred.user.uid, { email: email.trim(), displayName: username.trim(), marketingOptIn });
-        await sendEmailVerification(cred.user);
+        await sendEmailVerification(cred.user, {
+          url: 'https://cinelyse.com',
+          handleCodeInApp: false,
+        });
         registerForPushNotifications(cred.user.uid).catch(() => {});
         Alert.alert('Check your email 📧', 'We sent a verification link to your email. Please verify to continue.');
       } else {

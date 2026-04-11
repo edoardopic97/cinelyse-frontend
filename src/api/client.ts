@@ -119,4 +119,9 @@ export async function fetchTrending(): Promise<{ movies: MovieResult[]; tv: Movi
   return res.data;
 }
 
+export async function fetchRecommended(favorites: { tmdbID: number; type: string }[], excludeIds?: number[]): Promise<{ movies: MovieResult[]; tv: MovieResult[] }> {
+  const res = await api.post('/api/movie/recommended', { favorites, excludeIds });
+  return res.data;
+}
+
 export default api;

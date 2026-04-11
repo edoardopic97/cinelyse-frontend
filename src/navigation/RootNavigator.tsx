@@ -22,14 +22,14 @@ function DeepLinkHandler({ ready }: { ready: boolean }) {
   const handleUrl = async (url: string) => {
     const match = url.match(/\/movie\/(\w+)/);
     if (!match) return;
+    const id = match[1];
+    const typeParam = url.match(/[?&]type=(tv|movie)/)?.[1];
+    const mediaType = typeParam === 'tv' ? 'tv' : 'movie';
     try {
-      const id = match[1];
-      const isImdb = id.startsWith('tt');
-      const endpoint = isImdb ? `/api/movie/details?id=${id}&type=movie` : `/api/movie/details?id=${id}&type=movie`;
-      const res = await api.get(endpoint);
+      const res = await api.get(`/api/movie/details?id=${id}&type=${mediaType}`);
       const m = res.data;
-      if (!m?.id && !m?.title) return;
-      const isTV = !!m.first_air_date;
+      if (!m?.id && !m?.title && !m?.name) return;
+      const isTV = mediaType === 'tv' || !!m.first_air_date;
       const directors = isTV
         ? (m.created_by || []).map((c: any) => c.name).join(', ')
         : (m.credits?.crew || []).filter((c: any) => c.job === 'Director').map((c: any) => c.name).join(', ');
@@ -51,7 +51,9 @@ function DeepLinkHandler({ ready }: { ready: boolean }) {
         imdbID: m.external_ids?.imdb_id || m.imdb_id || undefined,
         Rated: m.adult ? '18+' : undefined,
       });
-    } catch {}
+    } catch (e) {
+      console.warn('[DeepLink] Failed to load movie:', e);
+    }
   };
 
   // Capture URLs immediately, but only process when ready
@@ -69,12 +71,13 @@ function DeepLinkHandler({ ready }: { ready: boolean }) {
     return () => sub?.remove?.();
   }, [ready]);
 
-  // Replay queued URL once auth is ready
+  // Replay queued URL once auth is ready — retry if first attempt fails
   useEffect(() => {
     if (ready && queueRef.current) {
       const url = queueRef.current;
       queueRef.current = null;
-      handleUrl(url);
+      // Small delay to ensure auth token is available for API calls
+      setTimeout(() => handleUrl(url), 500);
     }
   }, [ready]);
 

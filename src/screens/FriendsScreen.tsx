@@ -14,7 +14,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   getFriendRequests, subscribeToFriendRequests, acceptFriendRequest, rejectFriendRequest,
   getEnrichedFriends, getUserProfile, searchUserByUsername, sendFriendRequest,
-  areFriends, hasPendingRequest, getUserStats, getMovieListPaginated,
+  areFriends, hasPendingRequest, getUserStats, getMovieList,
   findUsersByEmails, getSearchCount, getFriends,
   type FriendRequest, type UserProfile, type MovieActivity, type FriendSummary,
 } from '../lib/firestore';
@@ -47,9 +47,8 @@ export default function FriendsScreen() {
   const [friendModalSearchCount, setFriendModalSearchCount] = useState(0);
   const [friendFriendsCount, setFriendFriendsCount] = useState(0);
   const [selectedFriendMovie, setSelectedFriendMovie] = useState<MovieActivity | null>(null);
-  const [friendListCursors, setFriendListCursors] = useState<Record<string, any>>({});
   const [friendListLoading, setFriendListLoading] = useState(false);
-  const [friendListHasMore, setFriendListHasMore] = useState<Record<string, boolean>>({ watched: true, watchlist: true, favorites: true });
+  const [friendPage, setFriendPage] = useState<Record<string, number>>({ watched: 1, watchlist: 1, favorites: 1 });
   const [friendGenre, setFriendGenre] = useState('all');
   const [showFriendGenreDrop, setShowFriendGenreDrop] = useState(false);
 
@@ -59,21 +58,17 @@ export default function FriendsScreen() {
   const [suggestedLoading, setSuggestedLoading] = useState(false);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
 
-  const PAGE_SIZE = 20;
-  const listTypeMap = { watched: 'watched' as const, watchlist: 'toWatch' as const, favorites: 'favorite' as const };
+  const PAGE_SIZE = 18;
 
-  const loadFriendTab = async (uid: string, tab: 'watched' | 'watchlist' | 'favorites', reset = false) => {
-    const listType = listTypeMap[tab];
-    const cursor = reset ? undefined : friendListCursors[tab];
-    if (!reset && !friendListHasMore[tab]) return;
-    setFriendListLoading(true);
-    try {
-      const { movies, lastDoc } = await getMovieListPaginated(uid, listType, PAGE_SIZE, cursor);
-      const setter = tab === 'watched' ? setFriendWatched : tab === 'watchlist' ? setFriendWatchlist : setFriendFavs;
-      setter(prev => reset ? movies : [...prev, ...movies]);
-      setFriendListCursors(prev => ({ ...prev, [tab]: lastDoc }));
-      setFriendListHasMore(prev => ({ ...prev, [tab]: movies.length === PAGE_SIZE }));
-    } catch {} finally { setFriendListLoading(false); }
+  const getPagedMovies = (tab: 'watched' | 'watchlist' | 'favorites') => {
+    const all = tab === 'watched' ? friendWatched : tab === 'watchlist' ? friendWatchlist : friendFavs;
+    const page = friendPage[tab] || 1;
+    return all.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  };
+
+  const getTotalPages = (tab: 'watched' | 'watchlist' | 'favorites') => {
+    const all = tab === 'watched' ? friendWatched : tab === 'watchlist' ? friendWatchlist : friendFavs;
+    return Math.max(1, Math.ceil(all.length / PAGE_SIZE));
   };
 
   const openFriendProfile = async (friend: FriendSummary) => {
@@ -85,31 +80,21 @@ export default function FriendsScreen() {
     setFriendWatched([]);
     setFriendWatchlist([]);
     setFriendFavs([]);
-    setFriendListCursors({});
-    setFriendListHasMore({ watched: true, watchlist: true, favorites: true });
+    setFriendPage({ watched: 1, watchlist: 1, favorites: 1 });
     try {
-      const [stats, fc, watchedRes, watchlistRes, favsRes] = await Promise.all([
+      const [stats, fc, watchedAll, watchlistAll, favsAll] = await Promise.all([
         getUserStats(friend.userId),
         getFriends(friend.userId),
-        getMovieListPaginated(friend.userId, 'watched', PAGE_SIZE),
-        getMovieListPaginated(friend.userId, 'toWatch', PAGE_SIZE),
-        getMovieListPaginated(friend.userId, 'favorite', PAGE_SIZE),
+        getMovieList(friend.userId, 'watched'),
+        getMovieList(friend.userId, 'toWatch'),
+        getMovieList(friend.userId, 'favorite'),
       ]);
       setFriendStats(stats);
       setFriendFriendsCount(fc.length);
-      setFriendWatched(watchedRes.movies);
-      setFriendWatchlist(watchlistRes.movies);
-      setFriendFavs(favsRes.movies);
-      setFriendListCursors({
-        watched: watchedRes.lastDoc,
-        watchlist: watchlistRes.lastDoc,
-        favorites: favsRes.lastDoc,
-      });
-      setFriendListHasMore({
-        watched: watchedRes.movies.length === PAGE_SIZE,
-        watchlist: watchlistRes.movies.length === PAGE_SIZE,
-        favorites: favsRes.movies.length === PAGE_SIZE,
-      });
+      const sortByDate = (a: MovieActivity, b: MovieActivity) => (b.updatedAt?.toMillis?.() ?? 0) - (a.updatedAt?.toMillis?.() ?? 0);
+      setFriendWatched(watchedAll.sort(sortByDate));
+      setFriendWatchlist(watchlistAll.sort(sortByDate));
+      setFriendFavs(favsAll.sort(sortByDate));
     } catch (e) { console.warn('Friend profile load error:', e); } finally { setProfileLoading(false); }
   };
 
@@ -540,9 +525,8 @@ export default function FriendsScreen() {
 
               {/* Movie list */}
               {(() => {
-                const raw = friendTab === 'watched' ? friendWatched : friendTab === 'watchlist' ? friendWatchlist : friendFavs;
-                const displayList = filterByGenre(raw, friendGenre);
-                if (friendListLoading && raw.length === 0) return <ActivityIndicator color={colors.red} style={{ marginTop: 30 }} />;
+                const displayList = filterByGenre(getPagedMovies(friendTab), friendGenre);
+                if (friendListLoading && displayList.length === 0) return <ActivityIndicator color={colors.red} style={{ marginTop: 30 }} />;
                 if (displayList.length === 0) return (
                   <View style={s.friendMovieEmpty}>
                     <Ionicons name={friendTab === 'watched' ? 'eye-outline' : friendTab === 'watchlist' ? 'bookmark-outline' : 'heart-outline'} size={32} color="rgba(255,255,255,0.1)" />
@@ -572,17 +556,19 @@ export default function FriendsScreen() {
                 </View>
                 );
               })()}
-              {friendListHasMore[friendTab] && (friendTab === 'watched' ? friendWatched : friendTab === 'watchlist' ? friendWatchlist : friendFavs).length > 0 && (
-                <TouchableOpacity
-                  style={s.loadMoreBtn}
-                  onPress={() => loadFriendTab(selectedFriend.userId, friendTab)}
-                  disabled={friendListLoading}
-                  activeOpacity={0.7}
-                >
-                  {friendListLoading ? <ActivityIndicator color={colors.white} size="small" /> : (
-                    <Text style={s.loadMoreText}>Load More</Text>
-                  )}
-                </TouchableOpacity>
+              {getTotalPages(friendTab) > 1 && (
+                <View style={s.paginationRow}>
+                  {Array.from({ length: getTotalPages(friendTab) }, (_, i) => i + 1).map(p => (
+                    <TouchableOpacity
+                      key={p}
+                      style={[s.pageBtn, friendPage[friendTab] === p && s.pageBtnActive]}
+                      onPress={() => setFriendPage(prev => ({ ...prev, [friendTab]: p }))}
+                      disabled={friendListLoading}
+                    >
+                      <Text style={[s.pageBtnText, friendPage[friendTab] === p && s.pageBtnTextActive]}>{p}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               )}
             </ScrollView>
           )}
@@ -687,8 +673,11 @@ const s = StyleSheet.create({
   friendMovieMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6, paddingBottom: 6, paddingTop: 2 },
   friendMovieYear: { color: colors.subtle, fontSize: 10 },
   friendMovieRating: { color: colors.gold, fontSize: 10, fontWeight: '700' },
-  loadMoreBtn: { alignItems: 'center', justifyContent: 'center', paddingVertical: 12, marginTop: 12, backgroundColor: 'rgba(229,9,20,0.15)', borderWidth: 1, borderColor: 'rgba(229,9,20,0.3)', borderRadius: 10, width: '100%' },
-  loadMoreText: { color: colors.white, fontSize: 13, fontWeight: '700' },
+  paginationRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 16, width: '100%', flexWrap: 'wrap' },
+  pageBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+  pageBtnActive: { backgroundColor: colors.red, borderColor: colors.red },
+  pageBtnText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
+  pageBtnTextActive: { color: colors.white },
   friendGenreBtn: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
   friendGenreBtnText: { color: colors.muted, fontSize: 12, fontWeight: '600' },
   friendGenreDropdown: { position: 'absolute', top: 42, left: 0, zIndex: 999, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 10, paddingVertical: 4, minWidth: 160, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 8 },

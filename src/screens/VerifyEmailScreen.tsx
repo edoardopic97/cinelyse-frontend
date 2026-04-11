@@ -19,7 +19,10 @@ export default function VerifyEmailScreen() {
     if (!auth.currentUser) return;
     setSending(true);
     try {
-      await sendEmailVerification(auth.currentUser);
+      await sendEmailVerification(auth.currentUser, {
+        url: 'https://cinelyse.com',
+        handleCodeInApp: false,
+      });
       Alert.alert('Sent!', 'Verification email sent. Check your inbox.');
     } catch (err: any) {
       Alert.alert('Error', err.code?.includes('too-many-requests') ? 'Too many attempts. Try again later.' : 'Failed to send email.');

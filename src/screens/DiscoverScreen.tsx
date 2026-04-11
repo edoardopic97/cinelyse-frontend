@@ -8,12 +8,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme/colors';
-import { searchMovies, fetchTrending, type MovieResult } from '../api/client';
+import { searchMovies, fetchTrending, fetchRecommended, type MovieResult } from '../api/client';
 import { getFriendlyError } from '../utils/errorMessages';
 import { useAuth } from '../contexts/AuthContext';
 import { useCredits } from '../hooks/useCredits';
-import { getSearchCount, acceptFriendRequest, rejectFriendRequest, deleteNotification } from '../lib/firestore';
+import { getSearchCount, acceptFriendRequest, rejectFriendRequest, deleteNotification, subscribeToAllMovies, type MovieActivity } from '../lib/firestore';
 import ProfileRing, { getTier } from '../components/ProfileRing';
+import PremiumModal from '../components/PremiumModal';
 
 import MovieCard from '../components/MovieCard';
 
@@ -114,9 +115,9 @@ function PremiumPicksSection({ onUnlock }: { onUnlock?: () => void }) {
           </View>
 
           {/* copy */}
-          <Text style={p.overlayTitle}>Unlock Personalized{'\n'}Recommendations</Text>
+          <Text style={p.overlayTitle}>Recommendations{'\n'}Built Around You</Text>
           <Text style={p.overlaySub}>
-            Your AI taste profile is ready. Get movies picked just for you — upgrade to Premium.
+            Based on what you watch and love. The more you explore, the sharper your picks get.
           </Text>
 
           {/* CTA */}
@@ -130,9 +131,9 @@ function PremiumPicksSection({ onUnlock }: { onUnlock?: () => void }) {
           {/* perks */}
           <View style={p.perks}>
             {[
-              'Daily picks tailored to your taste',
-              'Match scores based on your history',
-              'Unlimited AI credits',
+              'Powered by your favorites & history',
+              'Gets smarter the more you use it',
+              'Discover hidden gems matched to you',
             ].map((perk, i) => (
               <View key={i} style={p.perkRow}>
                 <View style={p.perkDot} />
@@ -149,7 +150,8 @@ function PremiumPicksSection({ onUnlock }: { onUnlock?: () => void }) {
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
   const { user, profile } = useAuth();
-  const { credits, maxCredits, refresh, consume } = useCredits(user?.uid);
+  const { credits, maxCredits, isPremium, refresh, consume, setPremium } = useCredits(user?.uid);
+  const [showPremium, setShowPremium] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MovieResult[]>([]);
   const [allResults, setAllResults] = useState<MovieResult[]>([]);
@@ -171,6 +173,34 @@ export default function DiscoverScreen() {
   const [trendingMovies, setTrendingMovies] = useState<MovieResult[]>([]);
   const [trendingTV, setTrendingTV] = useState<MovieResult[]>([]);
   const [trendingLoading, setTrendingLoading] = useState(false);
+  const [favorites, setFavorites] = useState<MovieActivity[]>([]);
+  const [recMovies, setRecMovies] = useState<MovieResult[]>([]);
+  const [recTV, setRecTV] = useState<MovieResult[]>([]);
+  const [recLoading, setRecLoading] = useState(false);
+  const [premiumUnlocked, setPremiumUnlocked] = useState(false);
+  const [watched, setWatched] = useState<MovieActivity[]>([]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    return subscribeToAllMovies(user.uid, {
+      watched: setWatched,
+      toWatch: () => {},
+      favorite: setFavorites,
+    });
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!premiumUnlocked) return;
+    if (!favorites.length) { setRecMovies([]); setRecTV([]); return; }
+    const favs = favorites.filter(f => f.tmdbID).map(f => ({ tmdbID: f.tmdbID!, type: f.type || 'movie' }));
+    if (!favs.length) return;
+    const excludeIds = watched.filter(w => w.tmdbID).map(w => w.tmdbID!);
+    setRecLoading(true);
+    fetchRecommended(favs, excludeIds)
+      .then(({ movies, tv }) => { setRecMovies(movies); setRecTV(tv); })
+      .catch(() => {})
+      .finally(() => setRecLoading(false));
+  }, [favorites, premiumUnlocked, watched]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -224,7 +254,7 @@ export default function DiscoverScreen() {
     if (!searchQuery) return;
 
     if (aiMode && !consume()) {
-      setError(`No AI credits left. Resets in ${getResetTime()}`);
+      setShowPremium(true);
       return;
     }
 
@@ -277,7 +307,7 @@ export default function DiscoverScreen() {
   const handleLoadMore = async () => {
     if (!lastQuery || loadingMore) return;
     if (aiMode && !consume()) {
-      setError(`No AI credits left. Resets in ${getResetTime()}`);
+      setShowPremium(true);
       return;
     }
     setLoadingMore(true);
@@ -377,12 +407,12 @@ export default function DiscoverScreen() {
                     <Text style={s.aiStar}>✦</Text>
                     <Text style={s.topChipTextRed}>AI</Text>
                   </View>
-                  <View style={[s.streakPill, credits <= 1 && credits !== Infinity && s.streakPillLow]}>
+                  <TouchableOpacity style={[s.streakPill, credits <= 1 && credits !== Infinity && s.streakPillLow]} onPress={() => setShowPremium(true)}>
                     <Ionicons name="flash" size={12} color={credits <= 1 && credits !== Infinity ? colors.red : credits > 0 ? colors.gold : colors.subtle} />
                     <Text style={[s.topChipTextGold, credits <= 1 && credits !== Infinity && { color: colors.red }, credits === 0 && { color: colors.subtle }]}>
                       {credits === Infinity ? '∞' : credits}/{maxCredits === Infinity ? '∞' : maxCredits}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 </>
               )}
               <TouchableOpacity style={s.bellBtn} onPress={openNotifs}>
@@ -454,14 +484,12 @@ export default function DiscoverScreen() {
           )}
 
           {/* Filters */}
-          {aiMode && (
-            <View style={s.filterRow}>
-              <FilterPill label="All" value="all" />
-              <FilterPill label="Movies" value="movie" />
-              <FilterPill label="TV Series" value="tv" />
-              <RatingDropdown />
-            </View>
-          )}
+          <View style={s.filterRow}>
+            <FilterPill label="All" value="all" />
+            <FilterPill label="Movies" value="movie" />
+            <FilterPill label="TV Series" value="tv" />
+            {aiMode && <RatingDropdown />}
+          </View>
 
           {/* Search history dropdown */}
           {showHistory && searchHistory.length > 0 && (
@@ -481,10 +509,60 @@ export default function DiscoverScreen() {
           )}
         </View>
 
-        {/* ── Bottom section: Premium (AI) or Trending (Title Search) ── */}
+        {/* ── Bottom section: Recommendations (AI) or Trending (Title Search) ── */}
         <View style={{ flex: 1, paddingHorizontal: 22 }}>
           {aiMode ? (
-            <PremiumPicksSection onUnlock={() => { /* TODO: open paywall */ }} />
+            !premiumUnlocked ? (
+              <PremiumPicksSection onUnlock={() => setPremiumUnlocked(true)} />
+            ) : recLoading ? (
+              <TrendingSkeleton />
+            ) : favorites.length === 0 ? (
+              <View style={s.recEmpty}>
+                <Ionicons name="heart-outline" size={40} color="rgba(255,255,255,0.1)" />
+                <Text style={s.recEmptyTitle}>No Recommendations Yet</Text>
+                <Text style={s.recEmptySub}>Start adding movies to your favorites to get personalized suggestions here.</Text>
+              </View>
+            ) : (recMovies.length === 0 && recTV.length === 0) ? (
+              <View style={s.recEmpty}>
+                <Ionicons name="sparkles-outline" size={40} color="rgba(255,255,255,0.1)" />
+                <Text style={s.recEmptyTitle}>No Recommendations Found</Text>
+                <Text style={s.recEmptySub}>Add more favorites to improve your suggestions.</Text>
+              </View>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+                {recMovies.length > 0 && (
+                  <View style={{ marginBottom: 20 }}>
+                    <View style={s.trendingHeader}>
+                      <Ionicons name="heart" size={16} color={colors.red} />
+                      <Text style={s.trendingTitle}>Movies You Might Like</Text>
+                    </View>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 22 }}>
+                      {recMovies.map((m, i) => (
+                        <MovieCard key={m.tmdbID || i} movie={m} allMovies={recMovies} currentIndex={i} />
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+                <View style={{ marginBottom: 20 }}>
+                  <View style={s.trendingHeader}>
+                    <Ionicons name="heart" size={16} color={colors.red} />
+                    <Text style={s.trendingTitle}>TV Shows You Might Like</Text>
+                  </View>
+                  {recTV.length > 0 ? (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 22 }}>
+                      {recTV.map((m, i) => (
+                        <MovieCard key={m.tmdbID || i} movie={m} allMovies={recTV} currentIndex={i} />
+                      ))}
+                    </ScrollView>
+                  ) : (
+                    <View style={s.recEmptyInline}>
+                      <Ionicons name="tv-outline" size={20} color="rgba(255,255,255,0.15)" />
+                      <Text style={s.recEmptyInlineText}>Start adding TV series to favorites to build your taste</Text>
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+            )
           ) : trendingLoading ? (
             <TrendingSkeleton />
           ) : (
@@ -612,6 +690,12 @@ export default function DiscoverScreen() {
             />
           </SafeAreaView>
         </Modal>
+        <PremiumModal
+          visible={showPremium}
+          onClose={() => setShowPremium(false)}
+          onUpgrade={() => { setPremium(true); setShowPremium(false); refresh(); }}
+          creditsLeft={credits}
+        />
       </Pressable>
     );
   }
@@ -687,13 +771,19 @@ export default function DiscoverScreen() {
               <TouchableOpacity style={s.loadMoreBtn} onPress={handleLoadMore} disabled={loadingMore} activeOpacity={0.8}>
                 {loadingMore
                   ? <ActivityIndicator color={colors.white} size="small" />
-                  : <><Ionicons name="refresh-outline" size={16} color={colors.white} /><Text style={s.loadMoreText}>Load More Results</Text></>
+                  : <><Text style={s.loadMoreAi}>✦</Text><Text style={s.loadMoreText}>Load More</Text><Text style={s.loadMoreCost}>+1</Text></>
                 }
               </TouchableOpacity>
             ) : null
           }
         />
       )}
+      <PremiumModal
+        visible={showPremium}
+        onClose={() => setShowPremium(false)}
+        onUpgrade={() => { setPremium(true); setShowPremium(false); refresh(); }}
+        creditsLeft={credits}
+      />
     </View>
   );
 }
@@ -870,11 +960,18 @@ const s = StyleSheet.create({
   retryText: { color: colors.white, fontWeight: '700', fontSize: 14 },
   loadMoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(229,9,20,0.15)', borderWidth: 1, borderColor: 'rgba(229,9,20,0.3)', borderRadius: 12, paddingVertical: 14, marginTop: 16, marginBottom: 20 },
   loadMoreText: { color: colors.white, fontSize: 14, fontWeight: '700' },
+  loadMoreAi: { color: '#e05050', fontSize: 14 },
+  loadMoreCost: { color: colors.gold, fontSize: 12, fontWeight: '800', backgroundColor: 'rgba(245,197,24,0.15)', borderWidth: 1, borderColor: 'rgba(245,197,24,0.3)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1, overflow: 'hidden' },
   historyDropdown: { width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderTopWidth: 0, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, marginTop: -12, paddingTop: 4, marginBottom: 16 },
   historyItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
   historyText: { color: colors.muted, fontSize: 14, fontWeight: '500' },
   trendingHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   trendingTitle: { color: colors.white, fontSize: 15, fontWeight: '700' },
+  recEmpty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 48, paddingHorizontal: 24, backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', borderRadius: 16 },
+  recEmptyTitle: { color: colors.muted, fontSize: 15, fontWeight: '700', marginTop: 12 },
+  recEmptySub: { color: colors.subtle, fontSize: 13, textAlign: 'center', marginTop: 6, maxWidth: 260, lineHeight: 20 },
+  recEmptyInline: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 20, paddingHorizontal: 16, backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', borderRadius: 12 },
+  recEmptyInlineText: { color: colors.subtle, fontSize: 13, flex: 1 },
   notifModal: { flex: 1, backgroundColor: colors.dark },
   notifHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' },
   notifTitle: { color: colors.white, fontSize: 17, fontWeight: '700' },

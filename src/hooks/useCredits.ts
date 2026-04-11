@@ -1,34 +1,50 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const MAX_CREDITS = 5;
+const FREE_CREDITS = 3;
+const PREMIUM_CREDITS = 15;
 
 function todayKey() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
-async function fetchRemaining(userId: string): Promise<number> {
+async function fetchRemaining(userId: string, maxCredits: number): Promise<number> {
   try {
     const ref = doc(db, 'users', userId, 'credits', todayKey());
     const snap = await getDoc(ref);
     const used = snap.exists() ? snap.data().used || 0 : 0;
-    return Math.max(MAX_CREDITS - used, 0);
+    return Math.max(maxCredits - used, 0);
   } catch {
-    return MAX_CREDITS;
+    return maxCredits;
   }
 }
 
 export function useCredits(userId?: string) {
-  const [credits, setCredits] = useState(MAX_CREDITS);
+  const [isPremium, setIsPremiumState] = useState(false);
+  const maxCredits = isPremium ? PREMIUM_CREDITS : FREE_CREDITS;
+  const [credits, setCredits] = useState(maxCredits);
   const creditsRef = useRef(credits);
   creditsRef.current = credits;
 
+  // Load premium status from AsyncStorage
   useEffect(() => {
     if (!userId) return;
-    fetchRemaining(userId).then(c => { setCredits(c); creditsRef.current = c; });
+    AsyncStorage.getItem(`premium_${userId}`).then(val => {
+      if (val === 'true') setIsPremiumState(true);
+    }).catch(() => {});
   }, [userId]);
+
+  // Fetch remaining credits when userId or premium status changes
+  useEffect(() => {
+    if (!userId) return;
+    fetchRemaining(userId, isPremium ? PREMIUM_CREDITS : FREE_CREDITS).then(c => {
+      setCredits(c);
+      creditsRef.current = c;
+    });
+  }, [userId, isPremium]);
 
   const consume = useCallback((): boolean => {
     if (creditsRef.current <= 0) return false;
@@ -40,10 +56,19 @@ export function useCredits(userId?: string) {
 
   const refresh = useCallback(async () => {
     if (!userId) return;
-    const remaining = await fetchRemaining(userId);
+    const remaining = await fetchRemaining(userId, isPremium ? PREMIUM_CREDITS : FREE_CREDITS);
     creditsRef.current = remaining;
     setCredits(remaining);
+  }, [userId, isPremium]);
+
+  const setPremium = useCallback(async (value: boolean) => {
+    setIsPremiumState(value);
+    if (userId) {
+      await AsyncStorage.setItem(`premium_${userId}`, value ? 'true' : 'false').catch(() => {});
+      // Also store in Firestore so backend can check
+      await setDoc(doc(db, 'users', userId), { premium: value }, { merge: true }).catch(() => {});
+    }
   }, [userId]);
 
-  return { credits, maxCredits: MAX_CREDITS, refresh, consume };
+  return { credits, maxCredits, isPremium, refresh, consume, setPremium };
 }

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import DiscoverScreen from '../screens/DiscoverScreen';
+import HomeScreen from '../screens/HomeScreen';
 import FriendsScreen from '../screens/FriendsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import { useAuth } from '../contexts/AuthContext';
@@ -42,6 +43,13 @@ export default function TabNavigator() {
         tabBarIconStyle: { marginBottom: 2 },
       }}
     >
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          tabBarIcon: ({ color }) => <Ionicons name="home" size={26} color={color} />,
+        }}
+      />
       <Tab.Screen
         name="Discover"
         component={DiscoverScreen}

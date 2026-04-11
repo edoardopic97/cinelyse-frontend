@@ -40,7 +40,7 @@ export default function MovieActivityButtons({ movie, compact = false }: Props) 
   const [favorite, setFavorite] = useState(false);
   const [rating, setRating] = useState(0);
   const [showRating, setShowRating] = useState(false);
-  const [loading, setLoading] = useState(false);
+
 
   useEffect(() => {
     setWatched(false);
@@ -56,57 +56,64 @@ export default function MovieActivityButtons({ movie, compact = false }: Props) 
 
   const handleToggle = async (field: 'watched' | 'toWatch' | 'favorite') => {
     if (!user?.uid) { Alert.alert('Sign In', 'Please sign in to track movies'); return; }
-    setLoading(true);
+    const current = field === 'watched' ? watched : field === 'toWatch' ? toWatch : favorite;
+    const next = !current;
+    // Optimistic update
+    if (field === 'watched') setWatched(next);
+    if (field === 'toWatch') setToWatch(next);
+    if (field === 'favorite') setFavorite(next);
     try {
-      const current = field === 'watched' ? watched : field === 'toWatch' ? toWatch : favorite;
       if (current) {
-        // Remove
-        if (field === 'watched') { await removeMovieFromWatched(user.uid, movie.movieId); setWatched(false); }
-        if (field === 'toWatch') { await removeMovieFromToWatch(user.uid, movie.movieId); setToWatch(false); }
-        if (field === 'favorite') { await removeMovieFromFavorites(user.uid, movie.movieId); setFavorite(false); }
+        if (field === 'watched') await removeMovieFromWatched(user.uid, movie.movieId);
+        if (field === 'toWatch') await removeMovieFromToWatch(user.uid, movie.movieId);
+        if (field === 'favorite') await removeMovieFromFavorites(user.uid, movie.movieId);
       } else {
-        const newState = {
+        await setMovieActivity(user.uid, movie.movieId, {
           ...movie,
           watched: field === 'watched' ? true : watched,
           toWatch: field === 'toWatch' ? true : toWatch,
           favorite: field === 'favorite' ? true : favorite,
-        };
-        await setMovieActivity(user.uid, movie.movieId, newState);
-        if (field === 'watched') setWatched(true);
-        if (field === 'toWatch') setToWatch(true);
-        if (field === 'favorite') setFavorite(true);
+        });
       }
-    } catch { Alert.alert('Error', 'Failed to update'); }
-    finally { setLoading(false); }
+    } catch {
+      // Revert on failure
+      if (field === 'watched') setWatched(current);
+      if (field === 'toWatch') setToWatch(current);
+      if (field === 'favorite') setFavorite(current);
+      Alert.alert('Error', 'Failed to update');
+    }
   };
 
   const handleRate = async (r: number) => {
     if (!user?.uid) return;
-    setLoading(true);
+    const prev = rating;
+    // Optimistic update
+    setRating(r);
+    setShowRating(false);
     try {
       await rateMovie(user.uid, movie.movieId, r);
-      setRating(r);
-      setShowRating(false);
-    } catch { Alert.alert('Error', 'Failed to rate'); }
-    finally { setLoading(false); }
+    } catch {
+      setRating(prev);
+      Alert.alert('Error', 'Failed to rate');
+    }
   };
 
   if (compact) {
     return (
       <View style={s.compactRow}>
-        <TouchableOpacity style={[s.compactBtn, watched && s.compactBtnActiveRed]} onPress={() => handleToggle('watched')} disabled={loading}>
+        <TouchableOpacity style={[s.compactBtn, watched && s.compactBtnActiveRed]} onPress={() => handleToggle('watched')}>
           <Ionicons name={watched ? 'eye' : 'eye-outline'} size={14} color={watched ? '#fff' : colors.muted} />
           <Text style={[s.compactLabel, watched && { color: '#fff' }]}>Watched</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[s.compactBtn, toWatch && s.compactBtnActiveGold]} onPress={() => handleToggle('toWatch')} disabled={loading}>
+        <TouchableOpacity style={[s.compactBtn, toWatch && s.compactBtnActiveGold]} onPress={() => handleToggle('toWatch')}>
           <Ionicons name={toWatch ? 'bookmark' : 'bookmark-outline'} size={14} color={toWatch ? '#000' : colors.muted} />
           <Text style={[s.compactLabel, toWatch && { color: '#000' }]}>Watch</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[s.compactBtn, favorite && s.compactBtnActiveRed]} onPress={() => handleToggle('favorite')} disabled={loading}>
+        <TouchableOpacity style={[s.compactBtn, favorite && s.compactBtnActiveRed]} onPress={() => handleToggle('favorite')}>
           <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={14} color={favorite ? '#fff' : colors.muted} />
           <Text style={[s.compactLabel, favorite && { color: '#fff' }]}>Fav</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[s.compactBtn, rating > 0 && s.compactBtnActiveGold]} onPress={() => setShowRating(!showRating)} disabled={loading}>
+        <TouchableOpacity style={[s.compactBtn, rating > 0 && s.compactBtnActiveGold]} onPress={() => setShowRating(!showRating)}>
           <Ionicons name="star" size={14} color={rating > 0 ? '#000' : colors.muted} />
           <Text style={[s.compactLabel, rating > 0 && { color: '#000' }]}>{rating > 0 ? `${rating}/10` : 'Rate'}</Text>
         </TouchableOpacity>
@@ -134,19 +141,19 @@ export default function MovieActivityButtons({ movie, compact = false }: Props) 
 
   return (
     <View style={s.fullCol}>
-      <TouchableOpacity style={[s.fullBtn, watched && s.fullBtnActiveRed]} onPress={() => handleToggle('watched')} disabled={loading}>
+      <TouchableOpacity style={[s.fullBtn, watched && s.fullBtnActiveRed]} onPress={() => handleToggle('watched')}>
         <Ionicons name={watched ? 'eye' : 'eye-outline'} size={18} color={watched ? '#fff' : colors.muted} />
         <Text style={[s.fullLabel, watched && { color: '#fff' }]}>{watched ? 'Watched ✓' : 'Mark as Watched'}</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={[s.fullBtn, toWatch && s.fullBtnActiveGold]} onPress={() => handleToggle('toWatch')} disabled={loading}>
+      <TouchableOpacity style={[s.fullBtn, toWatch && s.fullBtnActiveGold]} onPress={() => handleToggle('toWatch')}>
         <Ionicons name={toWatch ? 'bookmark' : 'bookmark-outline'} size={18} color={toWatch ? '#000' : colors.muted} />
         <Text style={[s.fullLabel, toWatch && { color: '#000' }]}>{toWatch ? 'In Watchlist ✓' : 'Add to Watchlist'}</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={[s.fullBtn, favorite && s.fullBtnActiveRed]} onPress={() => handleToggle('favorite')} disabled={loading}>
+      <TouchableOpacity style={[s.fullBtn, favorite && s.fullBtnActiveRed]} onPress={() => handleToggle('favorite')}>
         <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={18} color={favorite ? '#fff' : colors.muted} />
         <Text style={[s.fullLabel, favorite && { color: '#fff' }]}>{favorite ? 'Favorited ✓' : 'Add to Favorites'}</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={[s.fullBtn, rating > 0 && s.fullBtnActiveGold]} onPress={() => setShowRating(!showRating)} disabled={loading}>
+      <TouchableOpacity style={[s.fullBtn, rating > 0 && s.fullBtnActiveGold]} onPress={() => setShowRating(!showRating)}>
         <Ionicons name="star" size={18} color={rating > 0 ? '#000' : colors.muted} />
         <Text style={[s.fullLabel, rating > 0 && { color: '#000' }]}>{rating > 0 ? `Rated ${rating}/10` : 'Rate Movie'}</Text>
       </TouchableOpacity>
