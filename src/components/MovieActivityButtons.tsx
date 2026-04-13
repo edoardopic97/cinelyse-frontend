@@ -3,6 +3,7 @@ import { View, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useAuth } from '../contexts/AuthContext';
+import { fetchProviders } from '../api/client';
 import {
   getMovieActivity, setMovieActivity, rateMovie,
   removeMovieFromWatched, removeMovieFromToWatch, removeMovieFromFavorites,
@@ -26,6 +27,7 @@ export interface MovieData {
   tmdbID?: number;
   backdrop?: string;
   tagline?: string;
+  providerIds?: number[];
 }
 
 interface Props {
@@ -68,8 +70,17 @@ export default function MovieActivityButtons({ movie, compact = false }: Props) 
         if (field === 'toWatch') await removeMovieFromToWatch(user.uid, movie.movieId);
         if (field === 'favorite') await removeMovieFromFavorites(user.uid, movie.movieId);
       } else {
+        // Fetch provider IDs if tmdbID available and not already provided
+        let providerIds = movie.providerIds;
+        if (!providerIds && movie.tmdbID) {
+          try {
+            const { providers } = await fetchProviders(movie.tmdbID, movie.type);
+            providerIds = providers.filter(p => p.type === 'flatrate' || p.type === 'free' || p.type === 'ads').map(p => p.id);
+          } catch {}
+        }
         await setMovieActivity(user.uid, movie.movieId, {
           ...movie,
+          providerIds,
           watched: field === 'watched' ? true : watched,
           toWatch: field === 'toWatch' ? true : toWatch,
           favorite: field === 'favorite' ? true : favorite,

@@ -11,6 +11,7 @@ export interface UserProfile {
   email: string;
   displayName?: string;
   photoURL?: string;
+  streamingServices?: number[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -50,6 +51,7 @@ export interface MovieActivity {
   tmdbID?: number;
   backdrop?: string;
   tagline?: string;
+  providerIds?: number[];
 }
 
 // ── User Profile ──
@@ -242,6 +244,7 @@ export async function setMovieActivity(userId: string, movieId: string, activity
   if (activity.tmdbID) data.tmdbID = activity.tmdbID;
   if (activity.backdrop) data.backdrop = activity.backdrop;
   if (activity.tagline) data.tagline = activity.tagline;
+  if (activity.providerIds) data.providerIds = activity.providerIds;
   if (activity.rating !== undefined) data.rating = activity.rating;
   if (activity.review) data.review = activity.review;
   if (activity.watchedAt) data.watchedAt = activity.watchedAt;
@@ -364,7 +367,6 @@ export async function updateUserProfile(userId: string, updates: Partial<UserPro
   } else {
     await updateDoc(ref, { ...updates, updatedAt: Timestamp.now() });
   }
-  // Fan out displayName/photoURL changes to friends' denormalized docs
   const fanOut: Record<string, any> = {};
   if (updates.displayName !== undefined) fanOut.displayName = updates.displayName;
   if (updates.photoURL !== undefined) fanOut.photoURL = updates.photoURL;
@@ -465,7 +467,13 @@ export async function getSearchCount(userId: string): Promise<number> {
 }
 
 export async function deleteUserData(userId: string): Promise<void> {
-  const subs = ['movies', 'friends', 'friendRequests', 'notifications'];
+  // Remove this user from all friends' friend lists
+  const friendsSnap = await getDocs(collection(db, 'users', userId, 'friends'));
+  await Promise.all(friendsSnap.docs.map(d =>
+    deleteDoc(doc(db, 'users', d.id, 'friends', userId)).catch(() => {})
+  ));
+  // Delete own subcollections
+  const subs = ['movies', 'friends', 'friendRequests', 'notifications', 'credits', 'titleSearches'];
   for (const sub of subs) {
     const snap = await getDocs(collection(db, 'users', userId, sub));
     await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));

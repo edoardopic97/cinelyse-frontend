@@ -11,6 +11,8 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   onUpgrade: () => void;
+  onDowngrade?: () => void;
+  isPremium?: boolean;
   creditsLeft?: number;
 }
 
@@ -22,7 +24,7 @@ const PERKS = [
   { icon: 'star', color: colors.gold, title: 'Early Features', sub: 'Be the first to try new features' },
 ];
 
-export default function PremiumModal({ visible, onClose, onUpgrade, creditsLeft }: Props) {
+export default function PremiumModal({ visible, onClose, onUpgrade, onDowngrade, isPremium, creditsLeft }: Props) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -37,46 +39,61 @@ export default function PremiumModal({ visible, onClose, onUpgrade, creditsLeft 
 
             {/* Header */}
             <View style={s.header}>
-              <LinearGradient colors={['rgba(229,9,20,0.2)', 'rgba(229,9,20,0.05)']} style={s.iconGlow}>
-                <View style={s.iconCircle}>
-                  <Text style={s.crownEmoji}>👑</Text>
+              <LinearGradient colors={isPremium ? ['rgba(245,197,24,0.2)', 'rgba(245,197,24,0.05)'] : ['rgba(229,9,20,0.2)', 'rgba(229,9,20,0.05)']} style={s.iconGlow}>
+                <View style={[s.iconCircle, isPremium && { backgroundColor: 'rgba(245,197,24,0.15)', borderColor: 'rgba(245,197,24,0.4)' }]}>
+                  <Text style={s.crownEmoji}>{isPremium ? '✦' : '👑'}</Text>
                 </View>
               </LinearGradient>
 
-              <Text style={s.title}>Upgrade to{'\n'}CINE<Text style={s.titleAccent}>LYSE</Text> Premium</Text>
-
-              {creditsLeft === 0 && (
-                <View style={s.outBadge}>
-                  <Ionicons name="alert-circle" size={14} color={colors.red} />
-                  <Text style={s.outBadgeText}>You've used all your free credits today</Text>
-                </View>
+              {isPremium ? (
+                <>
+                  <Text style={s.title}>CINE<Text style={s.titleAccent}>LYSE</Text> Premium</Text>
+                  <View style={s.activeBadge}>
+                    <Ionicons name="checkmark-circle" size={14} color="#4ade80" />
+                    <Text style={s.activeBadgeText}>Active</Text>
+                  </View>
+                  <Text style={s.subtitle}>
+                    You have full access to all premium features
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={s.title}>Upgrade to{'\n'}CINE<Text style={s.titleAccent}>LYSE</Text> Premium</Text>
+                  {creditsLeft === 0 && (
+                    <View style={s.outBadge}>
+                      <Ionicons name="alert-circle" size={14} color={colors.red} />
+                      <Text style={s.outBadgeText}>You've used all your free credits today</Text>
+                    </View>
+                  )}
+                  <Text style={s.subtitle}>
+                    Unlock the full power of AI-driven movie discovery
+                  </Text>
+                </>
               )}
-
-              <Text style={s.subtitle}>
-                Unlock the full power of AI-driven movie discovery
-              </Text>
             </View>
 
             {/* Comparison */}
-            <View style={s.comparison}>
-              <View style={s.planCard}>
-                <Text style={s.planLabel}>FREE</Text>
-                <Text style={s.planCredits}>3</Text>
-                <Text style={s.planUnit}>credits/day</Text>
+            {!isPremium && (
+              <View style={s.comparison}>
+                <View style={s.planCard}>
+                  <Text style={s.planLabel}>FREE</Text>
+                  <Text style={s.planCredits}>3</Text>
+                  <Text style={s.planUnit}>credits/day</Text>
+                </View>
+                <View style={s.planArrow}>
+                  <Ionicons name="arrow-forward" size={20} color={colors.red} />
+                </View>
+                <View style={[s.planCard, s.planCardPremium]}>
+                  <Text style={[s.planLabel, { color: colors.gold }]}>PREMIUM</Text>
+                  <Text style={[s.planCredits, { color: colors.gold }]}>15</Text>
+                  <Text style={[s.planUnit, { color: 'rgba(245,197,24,0.6)' }]}>credits/day</Text>
+                </View>
               </View>
-              <View style={s.planArrow}>
-                <Ionicons name="arrow-forward" size={20} color={colors.red} />
-              </View>
-              <View style={[s.planCard, s.planCardPremium]}>
-                <Text style={[s.planLabel, { color: colors.gold }]}>PREMIUM</Text>
-                <Text style={[s.planCredits, { color: colors.gold }]}>15</Text>
-                <Text style={[s.planUnit, { color: 'rgba(245,197,24,0.6)' }]}>credits/day</Text>
-              </View>
-            </View>
+            )}
 
             {/* Perks */}
             <View style={s.perksSection}>
-              <Text style={s.perksTitle}>Everything in Premium</Text>
+              <Text style={s.perksTitle}>{isPremium ? 'Your Premium Perks' : 'Everything in Premium'}</Text>
               {PERKS.map((perk, i) => (
                 <View key={i} style={s.perkRow}>
                   <View style={[s.perkIcon, { backgroundColor: `${perk.color}15` }]}>
@@ -92,19 +109,30 @@ export default function PremiumModal({ visible, onClose, onUpgrade, creditsLeft 
             </View>
 
             {/* CTA */}
-            <TouchableOpacity style={s.ctaBtn} onPress={onUpgrade} activeOpacity={0.85}>
-              <LinearGradient colors={['#c0392b', '#e74c3c', '#c0392b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.ctaGradient}>
-                <Text style={s.ctaStar}>✦</Text>
-                <Text style={s.ctaText}>Upgrade to Premium</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <Text style={s.ctaSub}>Cancel anytime · No commitment</Text>
-
-            {/* Skip */}
-            <TouchableOpacity style={s.skipBtn} onPress={onClose}>
-              <Text style={s.skipText}>Maybe later</Text>
-            </TouchableOpacity>
+            {isPremium ? (
+              <>
+                <TouchableOpacity style={s.deactivateBtn} onPress={onDowngrade} activeOpacity={0.85}>
+                  <Ionicons name="close-circle-outline" size={16} color={colors.muted} />
+                  <Text style={s.deactivateText}>Deactivate Premium</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.skipBtn} onPress={onClose}>
+                  <Text style={s.skipText}>Close</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity style={s.ctaBtn} onPress={onUpgrade} activeOpacity={0.85}>
+                  <LinearGradient colors={['#c0392b', '#e74c3c', '#c0392b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.ctaGradient}>
+                    <Text style={s.ctaStar}>✦</Text>
+                    <Text style={s.ctaText}>Upgrade to Premium</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                <Text style={s.ctaSub}>Cancel anytime · No commitment</Text>
+                <TouchableOpacity style={s.skipBtn} onPress={onClose}>
+                  <Text style={s.skipText}>Maybe later</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </ScrollView>
         </View>
       </View>
@@ -136,6 +164,12 @@ const s = StyleSheet.create({
   crownEmoji: { fontSize: 28 },
   title: { fontSize: 26, fontWeight: '900', color: colors.white, textAlign: 'center', lineHeight: 32, marginBottom: 8 },
   titleAccent: { color: colors.red },
+  activeBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(74,222,128,0.1)', borderWidth: 1, borderColor: 'rgba(74,222,128,0.3)',
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 8,
+  },
+  activeBadgeText: { color: '#4ade80', fontSize: 12, fontWeight: '700' },
   outBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: 'rgba(229,9,20,0.1)', borderWidth: 1, borderColor: 'rgba(229,9,20,0.3)',
@@ -143,7 +177,6 @@ const s = StyleSheet.create({
   },
   outBadgeText: { color: colors.red, fontSize: 12, fontWeight: '600' },
   subtitle: { color: colors.subtle, fontSize: 14, textAlign: 'center', lineHeight: 20, maxWidth: 280, marginBottom: 24 },
-  // Comparison
   comparison: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 24, marginBottom: 24 },
   planCard: {
     flex: 1, alignItems: 'center', paddingVertical: 16,
@@ -161,7 +194,6 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(229,9,20,0.12)', borderWidth: 1, borderColor: 'rgba(229,9,20,0.3)',
     alignItems: 'center', justifyContent: 'center',
   },
-  // Perks
   perksSection: { paddingHorizontal: 24, marginBottom: 24 },
   perksTitle: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 14 },
   perkRow: {
@@ -174,7 +206,6 @@ const s = StyleSheet.create({
   },
   perkTitle: { color: colors.white, fontSize: 14, fontWeight: '700' },
   perkSub: { color: colors.subtle, fontSize: 12, marginTop: 1 },
-  // CTA
   ctaBtn: { marginHorizontal: 24, borderRadius: 14, overflow: 'hidden', marginBottom: 8 },
   ctaGradient: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -183,6 +214,13 @@ const s = StyleSheet.create({
   ctaStar: { color: colors.white, fontSize: 16 },
   ctaText: { color: colors.white, fontSize: 17, fontWeight: '800' },
   ctaSub: { color: colors.subtle, fontSize: 11, textAlign: 'center', marginBottom: 12 },
+  deactivateBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginHorizontal: 24, borderRadius: 14, paddingVertical: 14,
+    backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    marginBottom: 8,
+  },
+  deactivateText: { color: colors.muted, fontSize: 14, fontWeight: '600' },
   skipBtn: { alignItems: 'center', paddingVertical: 12, marginBottom: 8 },
   skipText: { color: colors.subtle, fontSize: 13, fontWeight: '600' },
 });

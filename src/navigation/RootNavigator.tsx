@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator, StyleSheet, Linking } from 'react-native';
@@ -17,18 +17,19 @@ function DeepLinkHandler({ ready }: { ready: boolean }) {
   const { openSharedMovie } = useSharedMovie();
   const openRef = useRef(openSharedMovie);
   openRef.current = openSharedMovie;
-  const queueRef = useRef<string | null>(null);
+  const pendingUrl = useRef<string | null>(null);
+  const readyRef = useRef(ready);
+  readyRef.current = ready;
 
-  const handleUrl = async (url: string) => {
-    const match = url.match(/\/movie\/(\w+)/);
-    if (!match) return;
+  const handleUrl = useCallback(async (url: string): Promise<boolean> => {
+    const match = url.match(/movie\/(\w+)/);
+    if (!match) return false;
     const id = match[1];
-    const typeParam = url.match(/[?&]type=(tv|movie)/)?.[1];
-    const mediaType = typeParam === 'tv' ? 'tv' : 'movie';
+    const mediaType = url.includes('type=tv') ? 'tv' : 'movie';
     try {
       const res = await api.get(`/api/movie/details?id=${id}&type=${mediaType}`);
       const m = res.data;
-      if (!m?.id && !m?.title && !m?.name) return;
+      if (!m?.id && !m?.title && !m?.name) return false;
       const isTV = mediaType === 'tv' || !!m.first_air_date;
       const directors = isTV
         ? (m.created_by || []).map((c: any) => c.name).join(', ')
@@ -51,42 +52,63 @@ function DeepLinkHandler({ ready }: { ready: boolean }) {
         imdbID: m.external_ids?.imdb_id || m.imdb_id || undefined,
         Rated: m.adult ? '18+' : undefined,
       });
+      return true;
     } catch (e) {
       console.warn('[DeepLink] Failed to load movie:', e);
+      return false;
     }
-  };
+  }, []);
 
-  // Capture URLs immediately, but only process when ready
+  // Capture initial URL on mount — always runs regardless of ready state
   useEffect(() => {
     Linking.getInitialURL().then(url => {
-      if (url) queueRef.current = url;
+      if (url && url.match(/movie\/(\w+)/)) {
+        pendingUrl.current = url;
+        // If already ready, process immediately
+        if (readyRef.current) {
+          pendingUrl.current = null;
+          handleUrl(url);
+        }
+      }
     }).catch(() => {});
+  }, [handleUrl]);
+
+  // Listen for URLs while app is already open (warm start)
+  useEffect(() => {
     const sub = Linking.addEventListener('url', ({ url }) => {
-      if (ready) {
+      if (readyRef.current) {
         handleUrl(url);
       } else {
-        queueRef.current = url;
+        pendingUrl.current = url;
       }
     });
     return () => sub?.remove?.();
-  }, [ready]);
+  }, [handleUrl]);
 
-  // Replay queued URL once auth is ready — retry if first attempt fails
+  // When ready becomes true, process any pending URL with retries
   useEffect(() => {
-    if (ready && queueRef.current) {
-      const url = queueRef.current;
-      queueRef.current = null;
-      // Small delay to ensure auth token is available for API calls
-      setTimeout(() => handleUrl(url), 500);
-    }
-  }, [ready]);
+    if (!ready || !pendingUrl.current) return;
+    const url = pendingUrl.current;
+    pendingUrl.current = null;
+
+    let attempts = 0;
+    const maxAttempts = 5;
+    const tryHandle = async () => {
+      attempts++;
+      const success = await handleUrl(url);
+      if (!success && attempts < maxAttempts) {
+        setTimeout(tryHandle, 1000);
+      }
+    };
+    // Delay first attempt to ensure auth token is available
+    setTimeout(tryHandle, 800);
+  }, [ready, handleUrl]);
 
   return null;
 }
 
-export default function RootNavigator() {
+function AppContent() {
   const { user, loading } = useAuth();
-  const ready = !loading && !!user;
 
   if (loading) {
     return (
@@ -97,20 +119,29 @@ export default function RootNavigator() {
   }
 
   return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {user ? (
+        user.emailVerified || user.providerData?.some(p => p.providerId === 'google.com') ? (
+          <Stack.Screen name="Main" component={TabNavigator} />
+        ) : (
+          <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
+        )
+      ) : (
+        <Stack.Screen name="Login" component={LoginScreen} />
+      )}
+    </Stack.Navigator>
+  );
+}
+
+export default function RootNavigator() {
+  const { user, loading } = useAuth();
+  const ready = !loading && !!user;
+
+  return (
     <SharedMovieProvider>
       <NavigationContainer>
         <DeepLinkHandler ready={ready} />
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          {user ? (
-            user.emailVerified || user.providerData?.some(p => p.providerId === 'google.com') ? (
-              <Stack.Screen name="Main" component={TabNavigator} />
-            ) : (
-              <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
-            )
-          ) : (
-            <Stack.Screen name="Login" component={LoginScreen} />
-          )}
-        </Stack.Navigator>
+        <AppContent />
         <SharedMovieModal />
       </NavigationContainer>
     </SharedMovieProvider>

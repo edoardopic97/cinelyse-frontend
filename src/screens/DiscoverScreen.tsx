@@ -1,20 +1,21 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList,
-  ActivityIndicator, Dimensions, ScrollView, Modal, Keyboard, Pressable,
+  ActivityIndicator, Dimensions, ScrollView, Modal, Keyboard, Pressable, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme/colors';
-import { searchMovies, fetchTrending, fetchRecommended, type MovieResult } from '../api/client';
+import { searchMovies, fetchTrending, fetchRecommended, fetchAvailableProviders, type MovieResult, type StreamingProvider } from '../api/client';
 import { getFriendlyError } from '../utils/errorMessages';
 import { useAuth } from '../contexts/AuthContext';
 import { useCredits } from '../hooks/useCredits';
 import { getSearchCount, acceptFriendRequest, rejectFriendRequest, deleteNotification, subscribeToAllMovies, type MovieActivity } from '../lib/firestore';
 import ProfileRing, { getTier } from '../components/ProfileRing';
 import PremiumModal from '../components/PremiumModal';
+import LevelUpModal from '../components/LevelUpModal';
 
 import MovieCard from '../components/MovieCard';
 
@@ -150,7 +151,7 @@ function PremiumPicksSection({ onUnlock }: { onUnlock?: () => void }) {
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
   const { user, profile } = useAuth();
-  const { credits, maxCredits, isPremium, refresh, consume, setPremium } = useCredits(user?.uid);
+  const { credits, maxCredits, isPremium, refresh, consume, refund, setPremium } = useCredits(user?.uid);
   const [showPremium, setShowPremium] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MovieResult[]>([]);
@@ -167,6 +168,9 @@ export default function DiscoverScreen() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const inputRef = useRef<TextInput>(null);
   const [searchCount, setSearchCount] = useState(0);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [levelUpTier, setLevelUpTier] = useState<import('../components/ProfileRing').Tier>('spectator');
+  const prevTierRef = useRef(getTier(0));
   const [lastQuery, setLastQuery] = useState('');
   const [loadingMore, setLoadingMore] = useState(false);
   const [aiMode, setAiMode] = useState(true);
@@ -177,8 +181,26 @@ export default function DiscoverScreen() {
   const [recMovies, setRecMovies] = useState<MovieResult[]>([]);
   const [recTV, setRecTV] = useState<MovieResult[]>([]);
   const [recLoading, setRecLoading] = useState(false);
-  const [premiumUnlocked, setPremiumUnlocked] = useState(false);
+
   const [watched, setWatched] = useState<MovieActivity[]>([]);
+  const [userProviders, setUserProviders] = useState<number[]>([]);
+  const [providerList, setProviderList] = useState<StreamingProvider[]>([]);
+  const [selectedProviderIds, setSelectedProviderIds] = useState<number[]>([]);
+  const [showProviderDrop, setShowProviderDrop] = useState(false);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    import('../lib/firestore').then(({ getUserProfile }) => {
+      getUserProfile(user.uid).then(p => {
+        if (p?.streamingServices?.length) {
+          setUserProviders(p.streamingServices);
+          fetchAvailableProviders().then(all => {
+            setProviderList(all.filter(pr => p.streamingServices!.includes(pr.id)));
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+    });
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -190,7 +212,7 @@ export default function DiscoverScreen() {
   }, [user?.uid]);
 
   useEffect(() => {
-    if (!premiumUnlocked) return;
+    if (!isPremium) return;
     if (!favorites.length) { setRecMovies([]); setRecTV([]); return; }
     const favs = favorites.filter(f => f.tmdbID).map(f => ({ tmdbID: f.tmdbID!, type: f.type || 'movie' }));
     if (!favs.length) return;
@@ -200,7 +222,7 @@ export default function DiscoverScreen() {
       .then(({ movies, tv }) => { setRecMovies(movies); setRecTV(tv); })
       .catch(() => {})
       .finally(() => setRecLoading(false));
-  }, [favorites, premiumUnlocked, watched]);
+  }, [favorites, isPremium, watched]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -213,7 +235,7 @@ export default function DiscoverScreen() {
 
   useEffect(() => {
     if (!user?.uid) return;
-    getSearchCount(user.uid).then(setSearchCount).catch(() => {});
+    getSearchCount(user.uid).then(c => { setSearchCount(c); prevTierRef.current = getTier(c); }).catch(() => {});
   }, [user?.uid]);
 
   const [acceptingNotif, setAcceptingNotif] = useState<string | null>(null);
@@ -254,7 +276,11 @@ export default function DiscoverScreen() {
     if (!searchQuery) return;
 
     if (aiMode && !consume()) {
-      setShowPremium(true);
+      if (!isPremium) {
+        setShowPremium(true);
+      } else {
+        setError(`All ${maxCredits} AI credits used today. Resets in ${getResetTime()}`);
+      }
       return;
     }
 
@@ -286,6 +312,8 @@ export default function DiscoverScreen() {
     if (category === 'movie') llmQuery += ', only movies (no TV series)';
     else if (category === 'tv') llmQuery += ', only TV series (no movies)';
     if (minRating !== 'Any') llmQuery += `, minimum TMDB rating ${minRating}`;
+    const providerNames = selectedProviderIds.map(id => providerList.find(p => p.id === id)?.name).filter(Boolean);
+    if (providerNames.length) llmQuery += `, only available on: ${providerNames.join(', ')}`;
 
     try {
       const res = await searchMovies(llmQuery, category, user?.uid, undefined, aiMode);
@@ -293,6 +321,7 @@ export default function DiscoverScreen() {
       setAllResults(movies);
       setResults(movies);
     } catch (err: any) {
+      if (aiMode) refund();
       setError(err?.response?.status === 429
         ? `No AI credits left. Resets in ${getResetTime()}`
         : getFriendlyError(err, 'Search failed. Please try again.'));
@@ -300,14 +329,28 @@ export default function DiscoverScreen() {
       setResults([]);
     } finally {
       setLoading(false);
-      if (aiMode) refresh();
+      if (aiMode && user?.uid) getSearchCount(user.uid).then(c => {
+        const oldTier = prevTierRef.current;
+        const newTier = getTier(c);
+        if (newTier !== oldTier && c > 0) {
+          prevTierRef.current = newTier;
+          setLevelUpTier(newTier);
+          setShowLevelUp(true);
+        }
+        prevTierRef.current = newTier;
+        setSearchCount(c);
+      }).catch(() => {});
     }
   };
 
   const handleLoadMore = async () => {
     if (!lastQuery || loadingMore) return;
     if (aiMode && !consume()) {
-      setShowPremium(true);
+      if (!isPremium) {
+        setShowPremium(true);
+      } else {
+        setError(`All ${maxCredits} AI credits used today. Resets in ${getResetTime()}`);
+      }
       return;
     }
     setLoadingMore(true);
@@ -316,6 +359,8 @@ export default function DiscoverScreen() {
     if (category === 'movie') llmQuery += ', only movies (no TV series)';
     else if (category === 'tv') llmQuery += ', only TV series (no movies)';
     if (minRating !== 'Any') llmQuery += `, minimum TMDB rating ${minRating}`;
+    const providerNames2 = selectedProviderIds.map(id => providerList.find(p => p.id === id)?.name).filter(Boolean);
+    if (providerNames2.length) llmQuery += `, only available on: ${providerNames2.join(', ')}`;
     const exclude = allResults.map(m => m.Title);
     try {
       const res = await searchMovies(llmQuery, category, user?.uid, exclude, aiMode);
@@ -324,10 +369,21 @@ export default function DiscoverScreen() {
       setAllResults(merged);
       setResults(merged);
     } catch (err: any) {
+      if (aiMode) refund();
       setError(getFriendlyError(err, 'Failed to load more. Please try again.'));
     } finally {
       setLoadingMore(false);
-      if (aiMode) refresh();
+      if (aiMode && user?.uid) getSearchCount(user.uid).then(c => {
+        const oldTier = prevTierRef.current;
+        const newTier = getTier(c);
+        if (newTier !== oldTier && c > 0) {
+          prevTierRef.current = newTier;
+          setLevelUpTier(newTier);
+          setShowLevelUp(true);
+        }
+        prevTierRef.current = newTier;
+        setSearchCount(c);
+      }).catch(() => {});
     }
   };
 
@@ -351,9 +407,10 @@ export default function DiscoverScreen() {
     </TouchableOpacity>
   );
 
+
   const RatingDropdown = () => (
     <View style={{ position: 'relative', zIndex: 99 }}>
-      <TouchableOpacity style={[s.ratingPill, minRating !== 'Any' && s.ratingPillActive]} onPress={() => setShowRatingDrop(!showRatingDrop)}>
+      <TouchableOpacity style={[s.ratingPill, minRating !== 'Any' && s.ratingPillActive]} onPress={() => { setShowRatingDrop(!showRatingDrop); setShowProviderDrop(false); }}>
         <Text style={[s.pillText, minRating !== 'Any' && { color: colors.gold }]}>{minRating === 'Any' ? '★ Rating' : `★ ${minRating}`}</Text>
         <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>▾</Text>
       </TouchableOpacity>
@@ -368,6 +425,51 @@ export default function DiscoverScreen() {
       )}
     </View>
   );
+
+  // Clear provider selection when premium is deactivated
+  useEffect(() => {
+    if (!isPremium) { setSelectedProviderIds([]); setShowProviderDrop(false); }
+  }, [isPremium]);
+
+  const ProviderDropdown = () => {
+    if (!providerList.length || !aiMode) return null;
+    const hasSelection = isPremium && selectedProviderIds.length > 0;
+    return (
+      <View style={{ position: 'relative', zIndex: 98 }}>
+        <TouchableOpacity style={[s.ratingPill, { marginLeft: 0 }, hasSelection && { borderColor: 'rgba(229,9,20,0.4)' }]} onPress={() => {
+          if (!isPremium) { setShowPremium(true); return; }
+          setShowProviderDrop(!showProviderDrop); setShowRatingDrop(false);
+        }}>
+          <Ionicons name="tv-outline" size={12} color={hasSelection ? colors.red : 'rgba(255,255,255,0.5)'} />
+          <Text style={[s.pillText, hasSelection && { color: colors.red }]}>{hasSelection ? `${selectedProviderIds.length} selected` : 'Streamers'}</Text>
+          <Text style={{ fontSize: 7, marginTop: -8, marginRight: -4 }}>👑</Text>
+        </TouchableOpacity>
+        {showProviderDrop && (
+          <View style={[s.dropdown, { minWidth: 200 }]}> 
+            <TouchableOpacity style={[s.dropItem, !hasSelection && s.dropItemActive]} onPress={() => { setSelectedProviderIds([]); }}>
+              <Text style={[s.dropItemText, !hasSelection && { color: colors.red }]}>Any provider</Text>
+              {!hasSelection && <Ionicons name="checkmark" size={14} color={colors.red} style={{ marginLeft: 'auto' }} />}
+            </TouchableOpacity>
+            {providerList.map(p => {
+              const sel = selectedProviderIds.includes(p.id);
+              return (
+                <TouchableOpacity key={p.id} style={[s.dropItem, sel && s.dropItemActive]} onPress={() => {
+                  setSelectedProviderIds(prev => sel ? prev.filter(x => x !== p.id) : [...prev, p.id]);
+                }}>
+                  <Image source={{ uri: p.logo }} style={{ width: 20, height: 20, borderRadius: 4 }} />
+                  <Text style={[s.dropItemText, sel && { color: colors.red }]}>{p.name}</Text>
+                  {sel && <Ionicons name="checkmark" size={14} color={colors.red} style={{ marginLeft: 'auto' }} />}
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity style={{ alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)', marginTop: 4 }} onPress={() => setShowProviderDrop(false)}>
+              <Text style={{ color: colors.red, fontSize: 13, fontWeight: '700' }}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    );
+  };
 
   // ─── PRE-SEARCH HOME SCREEN ────────────────────────────────────────────────
   if (!hasSearched) {
@@ -488,7 +590,7 @@ export default function DiscoverScreen() {
             <FilterPill label="All" value="all" />
             <FilterPill label="Movies" value="movie" />
             <FilterPill label="TV Series" value="tv" />
-            {aiMode && <RatingDropdown />}
+            {aiMode && <ProviderDropdown />}
           </View>
 
           {/* Search history dropdown */}
@@ -510,10 +612,10 @@ export default function DiscoverScreen() {
         </View>
 
         {/* ── Bottom section: Recommendations (AI) or Trending (Title Search) ── */}
-        <View style={{ paddingHorizontal: 22, paddingBottom: 120 }}>
+        <View style={{ flex: 1, paddingHorizontal: 22 }}>
           {aiMode ? (
-            !premiumUnlocked ? (
-              <PremiumPicksSection onUnlock={() => setPremiumUnlocked(true)} />
+            !isPremium ? (
+              <PremiumPicksSection onUnlock={() => { setPremium(true); refresh(); }} />
             ) : recLoading ? (
               <TrendingSkeleton />
             ) : favorites.length === 0 ? (
@@ -533,7 +635,7 @@ export default function DiscoverScreen() {
                 {recMovies.length > 0 && (
                   <View style={{ marginBottom: 20 }}>
                     <View style={s.trendingHeader}>
-                      <Ionicons name="heart" size={16} color={colors.red} />
+                      <Ionicons name="sparkles" size={16} color={colors.red} />
                       <Text style={s.trendingTitle}>Movies You Might Like</Text>
                     </View>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 22 }}>
@@ -545,7 +647,7 @@ export default function DiscoverScreen() {
                 )}
                 <View style={{ marginBottom: 20 }}>
                   <View style={s.trendingHeader}>
-                    <Ionicons name="heart" size={16} color={colors.red} />
+                    <Ionicons name="sparkles" size={16} color={colors.red} />
                     <Text style={s.trendingTitle}>TV Shows You Might Like</Text>
                   </View>
                   {recTV.length > 0 ? (
@@ -694,8 +796,11 @@ export default function DiscoverScreen() {
           visible={showPremium}
           onClose={() => setShowPremium(false)}
           onUpgrade={() => { setPremium(true); setShowPremium(false); refresh(); }}
+          onDowngrade={() => { setPremium(false); setShowPremium(false); refresh(); }}
+          isPremium={isPremium}
           creditsLeft={credits}
         />
+        <LevelUpModal visible={showLevelUp} tier={levelUpTier} onClose={() => setShowLevelUp(false)} />
       </Pressable>
     );
   }
@@ -731,13 +836,14 @@ export default function DiscoverScreen() {
         <FilterPill label="Movies" value="movie" />
         <FilterPill label="TV Series" value="tv" />
         <RatingDropdown />
+        <ProviderDropdown />
         <Text style={s.resultCount}>{filteredResults.length} result{filteredResults.length !== 1 ? 's' : ''}</Text>
       </View>
 
       {loading ? (
         <View style={s.loadingWrap}>
           <ActivityIndicator size="large" color={colors.red} />
-          <Text style={s.loadingText}>Searching for perfect movies…</Text>
+          <Text style={s.loadingText}>{aiMode ? '✦ AI is finding your movies…' : 'Searching…'}</Text>
         </View>
       ) : error ? (
         <View style={s.errorWrap}>
@@ -782,8 +888,11 @@ export default function DiscoverScreen() {
         visible={showPremium}
         onClose={() => setShowPremium(false)}
         onUpgrade={() => { setPremium(true); setShowPremium(false); refresh(); }}
+        onDowngrade={() => { setPremium(false); setShowPremium(false); refresh(); }}
+        isPremium={isPremium}
         creditsLeft={credits}
       />
+      <LevelUpModal visible={showLevelUp} tier={levelUpTier} onClose={() => setShowLevelUp(false)} />
     </View>
   );
 }
@@ -914,7 +1023,7 @@ const s = StyleSheet.create({
   topChipTextGold: { color: colors.gold, fontSize: 12, fontWeight: '700' },
   bellBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', position: 'relative' },
   topBellDot: { position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: 4, backgroundColor: colors.red },
-  heroSection: { marginTop: 28, marginBottom: 20 },
+  heroSection: { marginTop: 16, marginBottom: 14 },
   heroLabel: { fontSize: 11, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(200,60,60,0.8)', fontWeight: '600', marginBottom: 8 },
   heroTitle: { fontSize: 36, fontWeight: '700', color: colors.white, letterSpacing: -0.5, lineHeight: 40 },
   heroAccent: { fontSize: 38, fontWeight: '800', color: '#e8403a', letterSpacing: -1, lineHeight: 44 },
@@ -941,7 +1050,7 @@ const s = StyleSheet.create({
   pillTextActive: { color: colors.white },
   ratingPillActive: { borderColor: 'rgba(255,255,255,0.12)', backgroundColor: 'transparent' },
   dropdown: { position: 'absolute', top: 40, right: 0, zIndex: 999, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 10, paddingVertical: 4, minWidth: 120, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 8 },
-  dropItem: { paddingHorizontal: 14, paddingVertical: 10 },
+  dropItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10 },
   dropItemActive: { backgroundColor: 'rgba(245,197,24,0.08)' },
   dropItemText: { color: colors.text, fontSize: 13, fontWeight: '600' },
   ratingPill: { flexDirection: 'row', alignItems: 'center', gap: 5, marginLeft: 'auto', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', backgroundColor: 'transparent' },
@@ -950,7 +1059,7 @@ const s = StyleSheet.create({
   resultCount: { color: colors.subtle, fontSize: 12, fontWeight: '600', marginLeft: 'auto' },
   grid: { paddingHorizontal: 16, paddingBottom: 100 },
   gridRow: { gap: 8, marginBottom: 8 },
-  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingWrap: { flex: 1, alignItems: 'center', paddingTop: 40, gap: 12 },
   loadingText: { color: colors.subtle, fontSize: 14 },
   errorWrap: { alignItems: 'center', margin: 16, padding: 24, backgroundColor: 'rgba(229,9,20,0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(229,9,20,0.2)' },
   errorText: { color: '#ff6b6b', fontSize: 14, textAlign: 'center', marginTop: 8 },

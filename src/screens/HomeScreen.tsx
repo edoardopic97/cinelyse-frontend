@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator, Dimensions,
   Image, TouchableOpacity,
@@ -168,7 +168,9 @@ export default function HomeScreen() {
     async function load() {
       setLoading(true);
       try {
-        const enrichedFriends = await getEnrichedFriends(user!.uid);
+        const [enrichedFriends] = await Promise.all([
+          getEnrichedFriends(user!.uid),
+        ]);
         if (cancelled) return;
         setFriends(enrichedFriends);
 
@@ -261,8 +263,10 @@ export default function HomeScreen() {
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-        <Text style={s.pageTitle}>Home</Text>
-        <Text style={s.pageSubtitle}>Discover what's trending and what your friends like</Text>
+        <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
+          <Text style={s.pageTitle}>Home</Text>
+          <Text style={s.pageSubtitle}>What your friends are watching</Text>
+        </View>
 
         {loading ? (
           <View style={{ gap: 24, marginTop: 16 }}>
@@ -332,8 +336,8 @@ export default function HomeScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.black },
-  pageTitle: { fontSize: 24, fontWeight: '900', color: colors.white, paddingHorizontal: 16, marginTop: 16 },
-  pageSubtitle: { color: colors.subtle, fontSize: 13, paddingHorizontal: 16, marginTop: 2, marginBottom: 8 },
+  pageTitle: { fontSize: 24, fontWeight: '900', color: colors.white },
+  pageSubtitle: { color: colors.subtle, fontSize: 13, marginTop: 2, marginBottom: 8 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginBottom: 12 },
   sectionTitle: { color: colors.white, fontSize: 15, fontWeight: '700' },
   skeleton: { width: CARD_W, aspectRatio: 2 / 3, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },

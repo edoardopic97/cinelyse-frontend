@@ -109,17 +109,14 @@ export default function LoginScreen() {
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
         await updateProfile(cred.user, { displayName: username.trim() });
         await setUserProfile(cred.user.uid, { email: email.trim(), displayName: username.trim(), marketingOptIn });
-        await sendEmailVerification(cred.user, {
-          url: 'https://cinelyse.com',
-          handleCodeInApp: false,
-        });
+        await sendEmailVerification(cred.user);
         registerForPushNotifications(cred.user.uid).catch(() => {});
-        Alert.alert('Check your email 📧', 'We sent a verification link to your email. Please verify to continue.');
+        Alert.alert('Check your email 📧', 'We sent a verification link to your email. Please verify to continue. Check your spam or junk folder if you don\'t see it.');
       } else {
         const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
         registerForPushNotifications(cred.user.uid).catch(() => {});
         if (!cred.user.emailVerified) {
-          Alert.alert('Verify your email', 'Please check your inbox for the verification link we sent when you signed up.');
+          Alert.alert('Verify your email', 'Please check your inbox (and spam/junk folder) for the verification link we sent when you signed up.');
         }
       }
     } catch (err: any) {

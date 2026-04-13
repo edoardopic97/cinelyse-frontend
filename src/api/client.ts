@@ -124,4 +124,15 @@ export async function fetchRecommended(favorites: { tmdbID: number; type: string
   return res.data;
 }
 
+export interface StreamingProvider {
+  id: number;
+  name: string;
+  logo: string;
+}
+
+export async function fetchAvailableProviders(): Promise<StreamingProvider[]> {
+  const res = await api.get('/api/movie/available-providers');
+  return res.data.providers || [];
+}
+
 export default api;

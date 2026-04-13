@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signOut, deleteUser, reauthenticateWithCredential, EmailAuthProvider, GoogleAuthProvider, reauthenticateWithPopup, type User } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { getUserProfile, setUserProfile, deleteUserData } from '../lib/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface AuthContextType {
   user: User | null;
@@ -69,6 +70,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    const uid = auth.currentUser?.uid;
+    if (uid) {
+      await AsyncStorage.removeItem(`searchHistory_${uid}`).catch(() => {});
+      await AsyncStorage.removeItem(`premium_${uid}`).catch(() => {});
+    }
     await signOut(auth);
     setProfile(null);
   };

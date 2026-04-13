@@ -29,11 +29,18 @@ export function useCredits(userId?: string) {
   const creditsRef = useRef(credits);
   creditsRef.current = credits;
 
-  // Load premium status from AsyncStorage
+  // Load premium status from Firestore (source of truth), fallback to AsyncStorage
   useEffect(() => {
     if (!userId) return;
+    // Read cached value immediately for fast UI
     AsyncStorage.getItem(`premium_${userId}`).then(val => {
       if (val === 'true') setIsPremiumState(true);
+    }).catch(() => {});
+    // Then sync from Firestore
+    getDoc(doc(db, 'users', userId)).then(snap => {
+      const val = snap.exists() && snap.data().premium === true;
+      setIsPremiumState(val);
+      AsyncStorage.setItem(`premium_${userId}`, val ? 'true' : 'false').catch(() => {});
     }).catch(() => {});
   }, [userId]);
 
@@ -70,5 +77,11 @@ export function useCredits(userId?: string) {
     }
   }, [userId]);
 
-  return { credits, maxCredits, isPremium, refresh, consume, setPremium };
+  const refund = useCallback(() => {
+    const next = creditsRef.current + 1;
+    creditsRef.current = next;
+    setCredits(next);
+  }, []);
+
+  return { credits, maxCredits, isPremium, refresh, consume, refund, setPremium };
 }

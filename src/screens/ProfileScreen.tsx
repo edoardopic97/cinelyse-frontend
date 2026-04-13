@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert,
-  TextInput, FlatList, Dimensions, Modal,
+  TextInput, FlatList, Dimensions, Modal, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,8 +9,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { getGenreColor } from '../theme/genreColors';
 import { useAuth } from '../contexts/AuthContext';
-import { subscribeToAllMovies, getUserStats, getSearchCount, getFriends, type MovieActivity } from '../lib/firestore';
+import { subscribeToAllMovies, getUserStats, getSearchCount, getFriends, updateUserProfile, type MovieActivity } from '../lib/firestore';
 import { sortMovies, filterByGenre, searchByTitle, getUniqueGenres } from '../lib/movieUtils';
+import { fetchAvailableProviders, type StreamingProvider } from '../api/client';
+import { useCredits } from '../hooks/useCredits';
 import EditProfileModal from '../components/EditProfileModal';
 import ProfileMovieModal from '../components/ProfileMovieModal';
 import ProfileRing, { getTier, getNextTier, TIER_META, type Tier } from '../components/ProfileRing';
@@ -21,13 +23,14 @@ const GRID_COLS = 3;
 const GRID_GAP = 8;
 const GRID_W = (SW - 32 - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS;
 
-type Tab = 'watched' | 'watchlist' | 'favorites' | 'stats';
+type Tab = 'watched' | 'watchlist' | 'favorites' | 'stats' | 'services';
 type Sort = 'date' | 'rating' | 'title';
 type ViewMode = 'grid' | 'list';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, profile, logout } = useAuth();
+  const { isPremium, setPremium, refresh: refreshCredits } = useCredits(user?.uid);
   const [watched, setWatched] = useState<MovieActivity[]>([]);
   const [toWatch, setToWatch] = useState<MovieActivity[]>([]);
   const [favs, setFavs] = useState<MovieActivity[]>([]);
@@ -50,7 +53,12 @@ export default function ProfileScreen() {
   const [searchCount, setSearchCount] = useState(0);
   const [friendsCount, setFriendsCount] = useState(0);
   const [showTierInfo, setShowTierInfo] = useState(false);
-  const [statsUnlocked, setStatsUnlocked] = useState(false);
+  const [availableProviders, setAvailableProviders] = useState<StreamingProvider[]>([]);
+  const [selectedProviders, setSelectedProviders] = useState<number[]>([]);
+  const [providersLoading, setProvidersLoading] = useState(false);
+  const [savingProviders, setSavingProviders] = useState(false);
+  const [page, setPage] = useState<Record<string, number>>({ watched: 1, watchlist: 1, favorites: 1 });
+  const PAGE_SIZE = 18;
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -62,6 +70,12 @@ export default function ProfileScreen() {
     getUserStats(user.uid).then(setStats).catch(() => {});
     getSearchCount(user.uid).then(setSearchCount).catch(() => {});
     getFriends(user.uid).then(f => setFriendsCount(f.length)).catch(() => {});
+    // Load saved streaming services
+    import('../lib/firestore').then(({ getUserProfile }) => {
+      getUserProfile(user.uid).then(p => {
+        if (p?.streamingServices) setSelectedProviders(p.streamingServices);
+      }).catch(() => {});
+    });
     return unsub;
   }, [user?.uid]);
 
@@ -127,12 +141,36 @@ export default function ProfileScreen() {
     { text: 'Sign Out', style: 'destructive', onPress: logout },
   ]);
 
-  const tabs: { id: Tab; label: string; icon: string; count: number | null }[] = [
+  const tabs: { id: Tab; label: string; icon: string; count: number | null; premium?: boolean }[] = [
     { id: 'watched', label: 'Watched', icon: 'eye-outline', count: watched.length },
     { id: 'watchlist', label: 'Watchlist', icon: 'bookmark-outline', count: toWatch.length },
-    { id: 'favorites', label: 'Favorites', icon: 'heart-outline', count: favs.length },
-    { id: 'stats', label: 'Stats', icon: 'bar-chart-outline', count: null },
+    { id: 'favorites', label: 'Favs', icon: 'heart-outline', count: favs.length },
+    { id: 'stats', label: 'Stats', icon: 'bar-chart-outline', count: null, premium: true },
+    { id: 'services', label: 'Services', icon: 'tv-outline', count: null, premium: true },
   ];
+
+  const toggleProvider = (id: number) => {
+    setSelectedProviders(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
+  };
+
+  const saveProviders = async () => {
+    if (!user?.uid) return;
+    setSavingProviders(true);
+    try {
+      await updateUserProfile(user.uid, { streamingServices: selectedProviders } as any);
+      Alert.alert('Saved', 'Your streaming services have been updated.');
+    } catch {
+      Alert.alert('Error', 'Failed to save. Try again.');
+    } finally {
+      setSavingProviders(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab !== 'services' || !isPremium || availableProviders.length > 0) return;
+    setProvidersLoading(true);
+    fetchAvailableProviders().then(setAvailableProviders).catch(() => {}).finally(() => setProvidersLoading(false));
+  }, [tab, isPremium]);
 
   const renderMiniGrid = (movie: MovieActivity) => (
     <TouchableOpacity key={movie.movieId} style={s.miniCard} onPress={() => setSelectedMovie(movie)}>
@@ -246,17 +284,42 @@ export default function ProfileScreen() {
   const activeSearch = tab === 'watchlist' ? wlSearch : tab === 'favorites' ? favSearch : search;
   const activeGenre = tab === 'watchlist' ? wlGenre : tab === 'favorites' ? favGenre : genre;
 
+  const getPagedMovies = (movies: MovieActivity[]) => {
+    const currentPage = page[tab] || 1;
+    return movies.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  };
+  const getTotalPages = (movies: MovieActivity[]) => Math.max(1, Math.ceil(movies.length / PAGE_SIZE));
+
   const renderMovieList = (movies: MovieActivity[]) => {
-    if (!movies.length) return (
+    const paged = getPagedMovies(movies);
+    if (!paged.length) return (
       <View style={s.empty}>
         <Ionicons name={tab === 'watchlist' ? 'bookmark-outline' : tab === 'favorites' ? 'heart-outline' : 'eye-outline'} size={40} color="rgba(255,255,255,0.1)" />
         <Text style={s.emptyText}>{tab === 'watched' ? (activeSearch || activeGenre !== 'all' ? 'No movies match your filters.' : 'No movies watched yet.') : tab === 'watchlist' ? (activeSearch || activeGenre !== 'all' ? 'No movies match your filters.' : 'Your watchlist is empty.') : (activeSearch || activeGenre !== 'all' ? 'No movies match your filters.' : 'No favorites yet.')}</Text>
       </View>
     );
-    if (activeViewMode === 'list') return <View style={{ gap: 8 }}>{movies.map(renderMiniList)}</View>;
-    const rows: MovieActivity[][] = [];
-    for (let i = 0; i < movies.length; i += GRID_COLS) rows.push(movies.slice(i, i + GRID_COLS));
-    return <View style={{ gap: GRID_GAP }}>{rows.map((row, ri) => <View key={ri} style={{ flexDirection: 'row', gap: GRID_GAP }}>{row.map(renderMiniGrid)}</View>)}</View>;
+    const totalPages = getTotalPages(movies);
+    const content = activeViewMode === 'list'
+      ? <View style={{ gap: 8 }}>{paged.map(renderMiniList)}</View>
+      : (() => { const rows: MovieActivity[][] = []; for (let i = 0; i < paged.length; i += GRID_COLS) rows.push(paged.slice(i, i + GRID_COLS)); return <View style={{ gap: GRID_GAP }}>{rows.map((row, ri) => <View key={ri} style={{ flexDirection: 'row', gap: GRID_GAP }}>{row.map(renderMiniGrid)}</View>)}</View>; })();
+    return (
+      <>
+        {content}
+        {totalPages > 1 && (
+          <View style={s.paginationRow}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+              <TouchableOpacity
+                key={p}
+                style={[s.pageBtn, (page[tab] || 1) === p && s.pageBtnActive]}
+                onPress={() => setPage(prev => ({ ...prev, [tab]: p }))}
+              >
+                <Text style={[s.pageBtnText, (page[tab] || 1) === p && s.pageBtnTextActive]}>{p}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </>
+    );
   };
 
   return (
@@ -313,10 +376,12 @@ export default function ProfileScreen() {
         {/* Tabs */}
         <View style={s.tabRow}>
           {tabs.map(t => (
-            <TouchableOpacity key={t.id} style={[s.tab, tab === t.id && s.tabActive]} onPress={() => { setTab(t.id); setShowSortDrop(false); setShowGenreDrop(false); }}>
-              <Ionicons name={t.icon as any} size={16} color={tab === t.id ? colors.white : colors.subtle} />
+            <TouchableOpacity key={t.id} style={[s.tab, tab === t.id && s.tabActive]} onPress={() => { setTab(t.id); setShowSortDrop(false); setShowGenreDrop(false); setPage(p => ({ ...p, [t.id]: 1 })); }}>
+              <View style={{ position: 'relative' }}>
+                <Ionicons name={t.icon as any} size={15} color={tab === t.id ? colors.white : colors.subtle} />
+                {t.premium && <Text style={s.crownBadge}>👑</Text>}
+              </View>
               <Text style={[s.tabText, tab === t.id && s.tabTextActive]}>{t.label}</Text>
-
             </TouchableOpacity>
           ))}
         </View>
@@ -325,23 +390,23 @@ export default function ProfileScreen() {
         <View style={s.content}>
           {tab === 'watched' && (
             <>
-              {renderFilterBar({ search, setSearch, sort, setSort, genre, setGenre, viewMode, setViewMode, genres, count: filtered.length, placeholder: 'Search watched…' })}
+              {renderFilterBar({ search, setSearch: (v) => { setSearch(v); setPage(p => ({ ...p, watched: 1 })); }, sort, setSort: (v) => { setSort(v); setPage(p => ({ ...p, watched: 1 })); }, genre, setGenre: (v) => { setGenre(v); setPage(p => ({ ...p, watched: 1 })); }, viewMode, setViewMode, genres, count: filtered.length, placeholder: 'Search watched…' })}
               {renderMovieList(filtered)}
             </>
           )}
           {tab === 'watchlist' && (
             <>
-              {renderFilterBar({ search: wlSearch, setSearch: setWlSearch, sort: wlSort, setSort: setWlSort, genre: wlGenre, setGenre: setWlGenre, viewMode: wlViewMode, setViewMode: setWlViewMode, genres: wlGenres, count: filteredWl.length, placeholder: 'Search watchlist…' })}
+              {renderFilterBar({ search: wlSearch, setSearch: (v) => { setWlSearch(v); setPage(p => ({ ...p, watchlist: 1 })); }, sort: wlSort, setSort: (v) => { setWlSort(v); setPage(p => ({ ...p, watchlist: 1 })); }, genre: wlGenre, setGenre: (v) => { setWlGenre(v); setPage(p => ({ ...p, watchlist: 1 })); }, viewMode: wlViewMode, setViewMode: setWlViewMode, genres: wlGenres, count: filteredWl.length, placeholder: 'Search watchlist…' })}
               {renderMovieList(filteredWl)}
             </>
           )}
           {tab === 'favorites' && (
             <>
-              {renderFilterBar({ search: favSearch, setSearch: setFavSearch, sort: favSort, setSort: setFavSort, genre: favGenre, setGenre: setFavGenre, viewMode: favViewMode, setViewMode: setFavViewMode, genres: favGenres, count: filteredFav.length, placeholder: 'Search favorites…' })}
+              {renderFilterBar({ search: favSearch, setSearch: (v) => { setFavSearch(v); setPage(p => ({ ...p, favorites: 1 })); }, sort: favSort, setSort: (v) => { setFavSort(v); setPage(p => ({ ...p, favorites: 1 })); }, genre: favGenre, setGenre: (v) => { setFavGenre(v); setPage(p => ({ ...p, favorites: 1 })); }, viewMode: favViewMode, setViewMode: setFavViewMode, genres: favGenres, count: filteredFav.length, placeholder: 'Search favorites…' })}
               {renderMovieList(filteredFav)}
             </>
           )}
-          {tab === 'stats' && !statsUnlocked && (
+          {tab === 'stats' && !isPremium && (
             <View style={ps.wrapper}>
               <View style={ps.gridContainer}>
                 {/* Ghost: mirrors actual stats layout */}
@@ -392,7 +457,7 @@ export default function ProfileScreen() {
                   </View>
                   <Text style={ps.overlayTitle}>{'Unlock Your Viewing\nInsights'}</Text>
                   <Text style={ps.overlaySub}>Your stats are ready. See your genres, ratings, and activity — upgrade to Premium.</Text>
-                  <TouchableOpacity style={ps.unlockBtn} onPress={() => setStatsUnlocked(true)} activeOpacity={0.85}>
+                  <TouchableOpacity style={ps.unlockBtn} onPress={() => { setPremium(true); refreshCredits(); }} activeOpacity={0.85}>
                     <LinearGradient colors={['#c0392b', '#e74c3c']} style={ps.unlockGradient}>
                       <Text style={ps.unlockStar}>✦</Text>
                       <Text style={ps.unlockText}>Unlock with Premium</Text>
@@ -410,7 +475,95 @@ export default function ProfileScreen() {
               </View>
             </View>
           )}
-          {tab === 'stats' && statsUnlocked && (() => {
+          {tab === 'services' && !isPremium && (
+            <View style={ps.wrapper}>
+              <View style={ps.gridContainer}>
+                <View style={{ opacity: 0.55, gap: 16 }}>
+                  <View style={s.card}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                      <View style={{ width: 15, height: 15, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                      <View style={{ width: 130, height: 12, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                    </View>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                      {[1,2,3,4,5,6,7,8].map(i => (
+                        <View key={i} style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }} />
+                      ))}
+                    </View>
+                  </View>
+                  <View style={s.card}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                      <View style={{ width: 15, height: 15, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                      <View style={{ width: 90, height: 12, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                    </View>
+                    {[1,2,3].map(i => (
+                      <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                        <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                        <View style={{ flex: 1, height: 10, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.06)' }} />
+                      </View>
+                    ))}
+                  </View>
+                </View>
+                <View style={ps.overlay}>
+                  <View style={ps.lockCircle}>
+                    <Ionicons name="lock-closed" size={22} color={colors.red} />
+                  </View>
+                  <Text style={ps.overlayTitle}>{'Filter by Your\nStreaming Services'}</Text>
+                  <Text style={ps.overlaySub}>Select your platforms and only see content available to you.</Text>
+                  <TouchableOpacity style={ps.unlockBtn} onPress={() => { setPremium(true); refreshCredits(); }} activeOpacity={0.85}>
+                    <LinearGradient colors={['#c0392b', '#e74c3c']} style={ps.unlockGradient}>
+                      <Text style={ps.unlockStar}>✦</Text>
+                      <Text style={ps.unlockText}>Unlock with Premium</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                  <View style={ps.perks}>
+                    {['Filter recommendations by platform', 'Region-aware availability', 'Works across all searches'].map((perk, i) => (
+                      <View key={i} style={ps.perkRow}>
+                        <View style={ps.perkDot} />
+                        <Text style={ps.perkText}>{perk}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
+          {tab === 'services' && isPremium && (
+            <View style={{ gap: 16 }}>
+              <View style={s.card}>
+                <View style={s.cardHeader}><Ionicons name="tv-outline" size={15} color={colors.red} /><Text style={s.cardTitle}>Your Streaming Services</Text></View>
+                <Text style={{ color: colors.subtle, fontSize: 12, marginBottom: 14 }}>Select the platforms you have access to. This filters recommendations and search results.</Text>
+                {providersLoading ? (
+                  <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+                    <ActivityIndicator color={colors.red} />
+                  </View>
+                ) : (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                    {availableProviders.map(p => {
+                      const selected = selectedProviders.includes(p.id);
+                      return (
+                        <TouchableOpacity key={p.id} onPress={() => toggleProvider(p.id)} activeOpacity={0.7}
+                          style={[s.providerCard, selected && s.providerCardActive]}>
+                          <Image source={{ uri: p.logo }} style={s.providerLogo} />
+                          {selected && <View style={s.providerCheck}><Ionicons name="checkmark" size={10} color={colors.white} /></View>}
+                          <Text style={[s.providerName, selected && { color: colors.white }]} numberOfLines={1}>{p.name}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+              {selectedProviders.length > 0 && (
+                <TouchableOpacity style={s.saveBtn} onPress={saveProviders} disabled={savingProviders} activeOpacity={0.85}>
+                  <LinearGradient colors={['#c0392b', '#e74c3c']} style={s.saveGradient}>
+                    {savingProviders ? <ActivityIndicator color={colors.white} size="small" /> : (
+                      <><Ionicons name="checkmark-circle" size={16} color={colors.white} /><Text style={s.saveText}>Save ({selectedProviders.length} selected)</Text></>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+          {tab === 'stats' && isPremium && (() => {
             const tier = getTier(searchCount);
             const { next, needed } = getNextTier(tier);
             const tierMeta = TIER_META[tier];
@@ -574,11 +727,12 @@ const s = StyleSheet.create({
   statNum: { color: colors.white, fontSize: 17, fontWeight: '900' },
   statLabel: { color: colors.subtle, fontSize: 8, fontWeight: '600', textTransform: 'uppercase', textAlign: 'center' },
   // Tabs
-  tabRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 2, marginBottom: 16 },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabRow: { flexDirection: 'row', paddingHorizontal: 12, gap: 0, marginBottom: 16 },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 8, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: colors.red },
-  tabText: { color: colors.subtle, fontSize: 11, fontWeight: '600' },
+  tabText: { color: colors.subtle, fontSize: 10, fontWeight: '600' },
   tabTextActive: { color: colors.white, fontWeight: '700' },
+  crownBadge: { position: 'absolute', top: -6, right: -8, fontSize: 7 },
   tabBadge: { backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 99, paddingHorizontal: 5, paddingVertical: 1 },
   tabBadgeActive: { backgroundColor: 'rgba(229,9,20,0.2)', borderColor: 'rgba(229,9,20,0.35)' },
   tabBadgeText: { color: colors.subtle, fontSize: 10, fontWeight: '700' },
@@ -648,6 +802,20 @@ const s = StyleSheet.create({
   tierInfoReq: { color: colors.subtle, fontSize: 11, marginTop: 1 },
   tierInfoBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 },
   tierInfoBadgeText: { color: colors.white, fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  // Streaming providers
+  providerCard: { width: 68, alignItems: 'center', gap: 4, padding: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.02)', position: 'relative' },
+  providerCardActive: { borderColor: 'rgba(229,9,20,0.5)', backgroundColor: 'rgba(229,9,20,0.1)' },
+  providerLogo: { width: 36, height: 36, borderRadius: 8 },
+  providerCheck: { position: 'absolute', top: 3, right: 3, width: 16, height: 16, borderRadius: 8, backgroundColor: colors.red, alignItems: 'center', justifyContent: 'center' },
+  providerName: { color: colors.subtle, fontSize: 8, fontWeight: '600', textAlign: 'center' },
+  saveBtn: { borderRadius: 12, overflow: 'hidden' },
+  saveGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14 },
+  saveText: { color: colors.white, fontSize: 14, fontWeight: '700' },
+  paginationRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' },
+  pageBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+  pageBtnActive: { backgroundColor: colors.red, borderColor: colors.red },
+  pageBtnText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
+  pageBtnTextActive: { color: colors.white },
 });
 
 const ps = StyleSheet.create({
