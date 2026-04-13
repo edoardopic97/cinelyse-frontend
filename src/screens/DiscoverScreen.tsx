@@ -170,7 +170,17 @@ export default function DiscoverScreen() {
   const [searchCount, setSearchCount] = useState(0);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpTier, setLevelUpTier] = useState<import('../components/ProfileRing').Tier>('spectator');
-  const prevTierRef = useRef(getTier(0));
+  const prevTierRef = useRef<import('../components/ProfileRing').Tier | null>(null);
+  const initializedRef = useRef(false);
+  const [celebratedTiers, setCelebratedTiers] = useState<Set<string>>(new Set());
+
+  // Load celebrated tiers from storage on mount
+  useEffect(() => {
+    if (!user?.uid) return;
+    AsyncStorage.getItem(`celebratedTiers_${user.uid}`).then(val => {
+      if (val) setCelebratedTiers(new Set(JSON.parse(val)));
+    }).catch(() => {});
+  }, [user?.uid]);
   const [lastQuery, setLastQuery] = useState('');
   const [loadingMore, setLoadingMore] = useState(false);
   const [aiMode, setAiMode] = useState(true);
@@ -236,12 +246,20 @@ export default function DiscoverScreen() {
   useEffect(() => {
     if (!user?.uid) return;
     return subscribeToSearchCount(user.uid, (c) => {
-      const oldTier = prevTierRef.current;
       const newTier = getTier(c);
-      if (newTier !== oldTier && c > 0) {
+      if (!initializedRef.current) {
+        initializedRef.current = true;
         prevTierRef.current = newTier;
+        setSearchCount(c);
+        return;
+      }
+      if (prevTierRef.current && newTier !== prevTierRef.current && !celebratedTiers.has(newTier) && newTier !== 'spectator') {
         setLevelUpTier(newTier);
         setShowLevelUp(true);
+        const updated = new Set(celebratedTiers);
+        updated.add(newTier);
+        setCelebratedTiers(updated);
+        AsyncStorage.setItem(`celebratedTiers_${user!.uid}`, JSON.stringify([...updated])).catch(() => {});
       }
       prevTierRef.current = newTier;
       setSearchCount(c);
