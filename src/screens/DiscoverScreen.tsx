@@ -12,7 +12,7 @@ import { searchMovies, fetchTrending, fetchRecommended, fetchAvailableProviders,
 import { getFriendlyError } from '../utils/errorMessages';
 import { useAuth } from '../contexts/AuthContext';
 import { useCredits } from '../hooks/useCredits';
-import { getSearchCount, acceptFriendRequest, rejectFriendRequest, deleteNotification, subscribeToAllMovies, type MovieActivity } from '../lib/firestore';
+import { subscribeToSearchCount, acceptFriendRequest, rejectFriendRequest, deleteNotification, subscribeToAllMovies, type MovieActivity } from '../lib/firestore';
 import ProfileRing, { getTier } from '../components/ProfileRing';
 import PremiumModal from '../components/PremiumModal';
 import LevelUpModal from '../components/LevelUpModal';
@@ -235,7 +235,17 @@ export default function DiscoverScreen() {
 
   useEffect(() => {
     if (!user?.uid) return;
-    getSearchCount(user.uid).then(c => { setSearchCount(c); prevTierRef.current = getTier(c); }).catch(() => {});
+    return subscribeToSearchCount(user.uid, (c) => {
+      const oldTier = prevTierRef.current;
+      const newTier = getTier(c);
+      if (newTier !== oldTier && c > 0) {
+        prevTierRef.current = newTier;
+        setLevelUpTier(newTier);
+        setShowLevelUp(true);
+      }
+      prevTierRef.current = newTier;
+      setSearchCount(c);
+    });
   }, [user?.uid]);
 
   const [acceptingNotif, setAcceptingNotif] = useState<string | null>(null);
@@ -329,17 +339,6 @@ export default function DiscoverScreen() {
       setResults([]);
     } finally {
       setLoading(false);
-      if (aiMode && user?.uid) getSearchCount(user.uid).then(c => {
-        const oldTier = prevTierRef.current;
-        const newTier = getTier(c);
-        if (newTier !== oldTier && c > 0) {
-          prevTierRef.current = newTier;
-          setLevelUpTier(newTier);
-          setShowLevelUp(true);
-        }
-        prevTierRef.current = newTier;
-        setSearchCount(c);
-      }).catch(() => {});
     }
   };
 
@@ -373,17 +372,6 @@ export default function DiscoverScreen() {
       setError(getFriendlyError(err, 'Failed to load more. Please try again.'));
     } finally {
       setLoadingMore(false);
-      if (aiMode && user?.uid) getSearchCount(user.uid).then(c => {
-        const oldTier = prevTierRef.current;
-        const newTier = getTier(c);
-        if (newTier !== oldTier && c > 0) {
-          prevTierRef.current = newTier;
-          setLevelUpTier(newTier);
-          setShowLevelUp(true);
-        }
-        prevTierRef.current = newTier;
-        setSearchCount(c);
-      }).catch(() => {});
     }
   };
 

@@ -9,7 +9,7 @@ import VerifyEmailScreen from '../screens/VerifyEmailScreen';
 import TabNavigator from './TabNavigator';
 import SharedMovieModal from '../components/SharedMovieModal';
 import { colors } from '../theme/colors';
-import api from '../api/client';
+import { fetchMovieDetails } from '../api/client';
 
 const Stack = createNativeStackNavigator();
 
@@ -27,31 +27,9 @@ function DeepLinkHandler({ ready }: { ready: boolean }) {
     const id = match[1];
     const mediaType = url.includes('type=tv') ? 'tv' : 'movie';
     try {
-      const res = await api.get(`/api/movie/details?id=${id}&type=${mediaType}`);
-      const m = res.data;
-      if (!m?.id && !m?.title && !m?.name) return false;
-      const isTV = mediaType === 'tv' || !!m.first_air_date;
-      const directors = isTV
-        ? (m.created_by || []).map((c: any) => c.name).join(', ')
-        : (m.credits?.crew || []).filter((c: any) => c.job === 'Director').map((c: any) => c.name).join(', ');
-      const actors = (m.credits?.cast || []).slice(0, 6).map((c: any) => c.name).join(', ');
-      openRef.current({
-        Title: isTV ? m.name : m.title,
-        Year: ((isTV ? m.first_air_date : m.release_date) || '').slice(0, 4),
-        Poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
-        Genre: (m.genres || []).map((g: any) => g.name).join(', '),
-        Plot: m.overview || '',
-        tmdbRating: m.vote_average ? m.vote_average.toFixed(1) : '',
-        Runtime: m.runtime ? `${m.runtime} min` : undefined,
-        Country: (m.production_countries || []).map((c: any) => c.name).join(', ') || undefined,
-        Type: isTV ? 'series' : 'movie',
-        Director: directors || undefined,
-        Actors: actors || undefined,
-        Language: (m.spoken_languages || []).map((l: any) => l.english_name).join(', ') || undefined,
-        tmdbID: m.id,
-        imdbID: m.external_ids?.imdb_id || m.imdb_id || undefined,
-        Rated: m.adult ? '18+' : undefined,
-      });
+      const movie = await fetchMovieDetails(parseInt(id, 10), mediaType === 'tv' ? 'series' : 'movie');
+      if (!movie?.Title && !movie?.tmdbID) return false;
+      openRef.current(movie);
       return true;
     } catch (e) {
       console.warn('[DeepLink] Failed to load movie:', e);

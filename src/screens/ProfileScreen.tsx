@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { getGenreColor } from '../theme/genreColors';
 import { useAuth } from '../contexts/AuthContext';
-import { subscribeToAllMovies, getUserStats, getSearchCount, getFriends, updateUserProfile, type MovieActivity } from '../lib/firestore';
+import { subscribeToAllMovies, getUserStats, subscribeToSearchCount, getFriends, updateUserProfile, type MovieActivity } from '../lib/firestore';
 import { sortMovies, filterByGenre, searchByTitle, getUniqueGenres } from '../lib/movieUtils';
 import { fetchAvailableProviders, type StreamingProvider } from '../api/client';
 import { useCredits } from '../hooks/useCredits';
@@ -68,7 +68,7 @@ export default function ProfileScreen() {
       favorite: setFavs,
     });
     getUserStats(user.uid).then(setStats).catch(() => {});
-    getSearchCount(user.uid).then(setSearchCount).catch(() => {});
+    const unsubCount = subscribeToSearchCount(user.uid, setSearchCount);
     getFriends(user.uid).then(f => setFriendsCount(f.length)).catch(() => {});
     // Load saved streaming services
     import('../lib/firestore').then(({ getUserProfile }) => {
@@ -76,7 +76,7 @@ export default function ProfileScreen() {
         if (p?.streamingServices) setSelectedProviders(p.streamingServices);
       }).catch(() => {});
     });
-    return unsub;
+    return () => { unsub(); unsubCount(); };
   }, [user?.uid]);
 
   // Refresh stats when lists change

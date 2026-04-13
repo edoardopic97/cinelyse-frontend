@@ -161,26 +161,27 @@ export async function getEnrichedFriends(userId: string): Promise<FriendSummary[
       addedAt: data.addedAt,
     };
   });
-  // Backfill missing display names from actual user profiles
-  const needsFetch = friends.filter(f => !f.displayName);
-  if (needsFetch.length > 0) {
-    const profiles = await Promise.all(needsFetch.map(f => getDoc(doc(db, 'users', f.userId))));
-    profiles.forEach((profileSnap, i) => {
-      if (profileSnap.exists()) {
-        const data = profileSnap.data();
-        const friend = needsFetch[i];
-        friend.displayName = data.displayName || '';
-        friend.photoURL = data.photoURL || friend.photoURL;
-        friend.totalSearches = data.totalSearches || friend.totalSearches;
-        // Fix the denormalized doc for next time
+  // Always fetch live profiles to keep photoURL, displayName, and totalSearches in sync
+  const profiles = await Promise.all(friends.map(f => getDoc(doc(db, 'users', f.userId))));
+  profiles.forEach((profileSnap, i) => {
+    if (profileSnap.exists()) {
+      const data = profileSnap.data();
+      const friend = friends[i];
+      const newName = data.displayName || friend.displayName;
+      const newPhoto = data.photoURL ?? friend.photoURL;
+      const newSearches = data.totalSearches ?? friend.totalSearches;
+      if (newName !== friend.displayName || newPhoto !== friend.photoURL || newSearches !== friend.totalSearches) {
+        friend.displayName = newName;
+        friend.photoURL = newPhoto;
+        friend.totalSearches = newSearches;
         setDoc(doc(db, 'users', userId, 'friends', friend.userId), {
           displayName: friend.displayName,
           photoURL: friend.photoURL,
           totalSearches: friend.totalSearches,
         }, { merge: true }).catch(() => {});
       }
-    });
-  }
+    }
+  });
   return friends;
 }
 
@@ -464,6 +465,12 @@ export async function incrementSearchCount(userId: string): Promise<void> {
 export async function getSearchCount(userId: string): Promise<number> {
   const snap = await getDoc(doc(db, 'users', userId));
   return snap.exists() ? (snap.data().totalSearches || 0) : 0;
+}
+
+export function subscribeToSearchCount(userId: string, callback: (count: number) => void): Unsubscribe {
+  return onSnapshot(doc(db, 'users', userId), (snap) => {
+    callback(snap.exists() ? (snap.data().totalSearches || 0) : 0);
+  });
 }
 
 export async function deleteUserData(userId: string): Promise<void> {
