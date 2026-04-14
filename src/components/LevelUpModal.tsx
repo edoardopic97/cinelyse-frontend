@@ -162,7 +162,7 @@ const s = StyleSheet.create({
   },
   glow: {
     position: 'absolute', width: 160, height: 160, borderRadius: 80,
-    shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 60, elevation: 20,
+    shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 60,
   },
   levelUpBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,

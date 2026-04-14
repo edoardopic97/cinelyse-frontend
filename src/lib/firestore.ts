@@ -186,13 +186,34 @@ export async function getEnrichedFriends(userId: string): Promise<FriendSummary[
 }
 
 export async function searchUserByUsername(username: string) {
-  const snap = await getDoc(doc(db, 'usernames', username.toLowerCase().trim()));
-  if (!snap.exists()) return null;
-  const userId = snap.data().userId;
-  const profile = await getDoc(doc(db, 'users', userId));
+  const term = username.toLowerCase().trim();
+  if (!term) return null;
+  // 1. Try exact match on usernames collection first
+  const exactSnap = await getDoc(doc(db, 'usernames', term));
+  if (exactSnap.exists()) {
+    const userId = exactSnap.data().userId;
+    const profile = await getDoc(doc(db, 'users', userId));
+    if (profile.exists()) {
+      const data = profile.data();
+      return { uid: userId, displayName: data.displayName, photoURL: data.photoURL };
+    }
+  }
+  // 2. Prefix search on users collection — find displayNames starting with the term
+  const end = term.slice(0, -1) + String.fromCharCode(term.charCodeAt(term.length - 1) + 1);
+  const q = query(
+    collection(db, 'usernames'),
+    where('__name__', '>=', term),
+    where('__name__', '<', end),
+    limit(10),
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  // Return the first match
+  const first = snap.docs[0].data();
+  const profile = await getDoc(doc(db, 'users', first.userId));
   if (!profile.exists()) return null;
   const data = profile.data();
-  return { uid: userId, displayName: data.displayName, photoURL: data.photoURL };
+  return { uid: first.userId, displayName: data.displayName, photoURL: data.photoURL };
 }
 
 export async function sendFriendRequest(fromUserId: string, fromUsername: string, toUserId: string): Promise<void> {

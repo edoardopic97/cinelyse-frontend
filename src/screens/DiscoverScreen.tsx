@@ -166,6 +166,7 @@ export default function DiscoverScreen() {
   const [minRating, setMinRating] = useState('Any');
   const [showNotifs, setShowNotifs] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const deletedNotifIds = useRef(new Set<string>());
   const inputRef = useRef<TextInput>(null);
   const [searchCount, setSearchCount] = useState(0);
   const [showLevelUp, setShowLevelUp] = useState(false);
@@ -272,7 +273,9 @@ export default function DiscoverScreen() {
     if (!user?.uid) return;
     let unsub: (() => void) | undefined;
     import('../lib/firestore').then(({ subscribeToNotifications }) => {
-      unsub = subscribeToNotifications(user.uid, setNotifications);
+      unsub = subscribeToNotifications(user.uid, (notifs) => {
+        setNotifications(notifs.filter(n => !deletedNotifIds.current.has(n.id)));
+      });
     });
     return () => { unsub?.(); };
   }, [user?.uid]);
@@ -774,21 +777,21 @@ export default function DiscoverScreen() {
                         <Ionicons name="checkmark" size={13} color="#4ade80" />
                         <Text style={{ color: '#4ade80', fontSize: 11, fontWeight: '700' }}>Friends</Text>
                       </View>
-                      <TouchableOpacity style={s.notifDeleteBtn} onPress={() => { setNotifications(prev => prev.filter(n => n.id !== item.id)); deleteNotification(user!.uid, item.id); }}>
+                      <TouchableOpacity style={s.notifDeleteBtn} onPress={() => { deletedNotifIds.current.add(item.id); setNotifications(prev => prev.filter(n => n.id !== item.id)); deleteNotification(user!.uid, item.id); }}>
                         <Ionicons name="trash-outline" size={14} color={colors.subtle} />
                       </TouchableOpacity>
                     </View>
                   ) : item.type === 'friend_request' && item.rejected ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Text style={{ color: colors.subtle, fontSize: 11 }}>Declined</Text>
-                      <TouchableOpacity style={s.notifDeleteBtn} onPress={() => { setNotifications(prev => prev.filter(n => n.id !== item.id)); deleteNotification(user!.uid, item.id); }}>
+                      <TouchableOpacity style={s.notifDeleteBtn} onPress={() => { deletedNotifIds.current.add(item.id); setNotifications(prev => prev.filter(n => n.id !== item.id)); deleteNotification(user!.uid, item.id); }}>
                         <Ionicons name="trash-outline" size={14} color={colors.subtle} />
                       </TouchableOpacity>
                     </View>
                   ) : (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       {!item.read && <View style={s.notifDot} />}
-                      <TouchableOpacity style={s.notifDeleteBtn} onPress={() => { setNotifications(prev => prev.filter(n => n.id !== item.id)); deleteNotification(user!.uid, item.id); }}>
+                      <TouchableOpacity style={s.notifDeleteBtn} onPress={() => { deletedNotifIds.current.add(item.id); setNotifications(prev => prev.filter(n => n.id !== item.id)); deleteNotification(user!.uid, item.id); }}>
                         <Ionicons name="trash-outline" size={14} color={colors.subtle} />
                       </TouchableOpacity>
                     </View>
