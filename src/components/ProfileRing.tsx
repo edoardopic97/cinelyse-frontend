@@ -102,7 +102,8 @@ function SpectatorFrame({ children, size, active }: { children: React.ReactNode;
         width: s.container - 8, height: s.container - 8,
         borderRadius: (s.container - 8) / 2,
         shadowColor: '#7a9acc', shadowOffset: { width: 0, height: 0 },
-        shadowRadius: size === 'small' ? 6 : 12, elevation: 6,
+        shadowRadius: size === 'small' ? 6 : 12,
+        shadowOpacity: 1,
         opacity: breathe,
       }} />
       <Svg width={s.container} height={s.container} viewBox="0 0 100 100" style={{ position: 'absolute' }}>
@@ -129,7 +130,8 @@ function CinephileFrame({ children, size, active }: { children: React.ReactNode;
         width: s.container - 8, height: s.container - 8,
         borderRadius: (s.container - 8) / 2,
         shadowColor: '#ff5050', shadowOffset: { width: 0, height: 0 },
-        shadowRadius: size === 'small' ? 8 : 18, elevation: 8,
+        shadowRadius: size === 'small' ? 8 : 18,
+        shadowOpacity: 1,
         opacity: pulse,
       }} />
       <Svg width={s.container} height={s.container} viewBox="0 0 120 120" style={{ position: 'absolute' }}>
@@ -167,7 +169,7 @@ function CriticFrame({ children, size, active }: { children: React.ReactNode; si
         width: s.container - 12, height: s.container - 12,
         borderRadius: (s.container - 12) / 2,
         shadowColor: '#ffd700', shadowOffset: { width: 0, height: 0 },
-        shadowRadius: size === 'small' ? 10 : 20, shadowOpacity: 0.2, elevation: 6,
+        shadowRadius: size === 'small' ? 10 : 20, shadowOpacity: 0.2,
       }} />
       <Svg width={s.container} height={s.container} viewBox="0 0 140 140" style={{ position: 'absolute' }}>
         <Defs>
@@ -228,14 +230,7 @@ function CriticFrame({ children, size, active }: { children: React.ReactNode; si
 }
 
 /* ─────────────────────────────────────────
-   Director — fully reworked
-   Key fixes:
-   • Square container (no extra height offset)
-   • All SVGs share viewBox "0 0 200 200", center (100,100)
-   • Arcs use strokeDasharray on full <Circle> elements so they
-     always stay locked to their track regardless of rotation
-   • Crown is the last child in the View so it always renders
-     on top of all rotating layers
+   Director
 ───────────────────────────────────────── */
 function DirectorFrame({ children, size, active }: { children: React.ReactNode; size: 'small' | 'medium' | 'large'; active: boolean }) {
   const s = SIZES[size];
@@ -243,34 +238,27 @@ function DirectorFrame({ children, size, active }: { children: React.ReactNode; 
   const isSmall = size === 'small';
   const isLarge = size === 'large';
 
-  // Arc geometry — 200×200 viewBox, center (100,100)
-  const R1 = 86; // outer ring
-  const R2 = 73; // mid ring
-  const R3 = 61; // inner accent ring
+  const R1 = 86;
+  const R2 = 73;
+  const R3 = 61;
   const C1 = 2 * Math.PI * R1;
   const C2 = 2 * Math.PI * R2;
 
-  // 4 arcs on outer ring (72% filled per quadrant)
   const s1 = parseFloat((C1 / 4 * 0.72).toFixed(2));
   const g1 = parseFloat((C1 / 4 - s1).toFixed(2));
-  // 8 arcs on mid ring (55% filled per octant)
   const s2 = parseFloat((C2 / 8 * 0.55).toFixed(2));
   const g2 = parseFloat((C2 / 8 - s2).toFixed(2));
-  // 24 tick marks on outer halo
   const s3 = parseFloat((C1 / 24 * 0.4).toFixed(2));
   const g3 = parseFloat((C1 / 24 - s3).toFixed(2));
 
   const sw = isSmall ? 4 : isLarge ? 7 : 5.5;
 
-  // Rotations
   const cwRotation   = useRotation(11000, 1, active);
   const ccwRotation  = useRotation(19000, -1, active);
   const slowRotation = useRotation(32000, 1, active);
 
-  // Glow pulse
   const glowPulse = usePulse(0.22, 0.42, 3000, active);
 
-  // Ember animations
   const ember1 = usePulse(0, 1, 3000, active);
   const ember2 = usePulse(0, 1, 4000, active);
   const ember3 = usePulse(0, 1, 2500, active);
@@ -285,7 +273,7 @@ function DirectorFrame({ children, size, active }: { children: React.ReactNode; 
   return (
     <View style={{ width: c, height: c, alignItems: 'center', justifyContent: 'center' }}>
 
-      {/* Pulsing ambient glow */}
+      {/* Pulsing ambient glow — no elevation */}
       <Animated.View style={{
         position: 'absolute',
         width: c * 0.78, height: c * 0.78,
@@ -293,7 +281,7 @@ function DirectorFrame({ children, size, active }: { children: React.ReactNode; 
         shadowColor: '#ffaa00',
         shadowOffset: { width: 0, height: 0 },
         shadowRadius: isSmall ? 12 : 25,
-        elevation: 8,
+        shadowOpacity: 1,
         opacity: glowPulse,
       }} />
 
@@ -307,7 +295,6 @@ function DirectorFrame({ children, size, active }: { children: React.ReactNode; 
           </RadialGradient>
         </Defs>
         <Circle cx={100} cy={100} r={84} fill="url(#dirCoreFill)" />
-        {/* Groove track — dark bed the arcs sit inside */}
         <Circle cx={100} cy={100} r={R1} stroke="#110900" strokeWidth={sw + 3} fill="none" opacity={0.75} />
         <Circle cx={100} cy={100} r={R1} stroke="#ffaa00" strokeWidth={0.5}     fill="none" opacity={0.35} />
         {!isSmall && (
@@ -380,7 +367,7 @@ function DirectorFrame({ children, size, active }: { children: React.ReactNode; 
             </Animated.View>
           )}
 
-          {/* Ember particles near the crown */}
+          {/* Ember particles */}
           <Animated.View style={{
             position: 'absolute',
             left: c * 0.41, top: isLarge ? c * 0.07 : c * 0.09,
@@ -413,9 +400,7 @@ function DirectorFrame({ children, size, active }: { children: React.ReactNode; 
       {/* Avatar / children */}
       {children}
 
-      {/* ── Crown — rendered LAST so it always paints above all arc layers ──
-          Anchored at the top of R1 in the 200×200 viewBox: y = 100 - 86 = 14.
-          Three-pass rendering: dark backing → outer stroke → gold fill → gems */}
+      {/* ── Crown ── */}
       {!isSmall && (
         <Svg
           width={c} height={c}
@@ -438,7 +423,6 @@ function DirectorFrame({ children, size, active }: { children: React.ReactNode; 
             </LinearGradient>
           </Defs>
 
-          {/* Cardinal diamonds at 3 / 6 / 9 o'clock */}
           <Polygon
             points={`${100 + R1 + 6},100 ${100 + R1 + 1},105 ${100 + R1 - 4},100 ${100 + R1 + 1},95`}
             fill="#ffcc44" stroke="#7a4400" strokeWidth={0.8} opacity={0.95}
@@ -452,52 +436,41 @@ function DirectorFrame({ children, size, active }: { children: React.ReactNode; 
             fill="#ffcc44" stroke="#7a4400" strokeWidth={0.8} opacity={0.95}
           />
 
-          {/* Crown group — origin at top of ring (100, 14) */}
           <G transform="translate(100, 14)">
-            {/* Pass 1: dark backing panel — isolates crown from arcs behind it */}
             <Path
               d="M-18,10 L-15,-9 L-8,0 L0,-17 L8,0 L15,-9 L18,10 Q18,14 0,14 Q-18,14 -18,10 Z"
               fill="#0d0204" opacity={0.92}
             />
-            {/* Pass 2: outer dark stroke for crisp silhouette */}
             <Path
               d="M-16,8 L-13,-8 L-7,0 L0,-16 L7,0 L13,-8 L16,8 L16,13 L-16,13 Z"
               fill="none" stroke="#1a0a00" strokeWidth={2.5} strokeLinejoin="round"
             />
-            {/* Pass 3: gold fill */}
             <Path
               d="M-16,8 L-13,-8 L-7,0 L0,-16 L7,0 L13,-8 L16,8 Z"
               fill="url(#crownVertical)"
             />
-            {/* Base plate */}
             <Rect x={-16} y={8} width={32} height={6} rx={1.5} fill="url(#crownHorizontal)" />
-            {/* Subtle dark contour on top of fill */}
             <Path
               d="M-16,8 L-13,-8 L-7,0 L0,-16 L7,0 L13,-8 L16,8"
               fill="none" stroke="#7a3a00" strokeWidth={1} strokeLinejoin="round" opacity={0.7}
             />
-            {/* Inner bright highlight edge */}
             <Path
               d="M-14,8 L-11,-6 L-6,0.5 L0,-13 L6,0.5 L11,-6 L14,8"
               fill="none" stroke="#fff5cc" strokeWidth={0.7} strokeLinejoin="round" opacity={0.55}
             />
 
-            {/* Gem — left prong: dark ring → white → amber core */}
             <Circle cx={-13} cy={-6}  r={3}   fill="#7a3a00" />
             <Circle cx={-13} cy={-6}  r={2}   fill="#fff8e0" />
             <Circle cx={-13} cy={-6}  r={0.8} fill="#ffcc44" />
 
-            {/* Gem — center prong (tallest, slightly larger) */}
             <Circle cx={0}   cy={-13} r={3.5} fill="#7a3a00" />
             <Circle cx={0}   cy={-13} r={2.4} fill="#fff8e0" />
             <Circle cx={0}   cy={-13} r={1}   fill="#ffcc44" />
 
-            {/* Gem — right prong */}
             <Circle cx={13}  cy={-6}  r={3}   fill="#7a3a00" />
             <Circle cx={13}  cy={-6}  r={2}   fill="#fff8e0" />
             <Circle cx={13}  cy={-6}  r={0.8} fill="#ffcc44" />
 
-            {/* Base plate accent gems (large size only) */}
             {isLarge && (
               <>
                 <Circle cx={0}  cy={11} r={1.6} fill="#ffcc44" opacity={0.8} />
