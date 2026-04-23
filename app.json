@@ -62,8 +62,10 @@
         }
       ],
       "@react-native-google-signin/google-signin",
-      "expo-localization"
+      "expo-localization",
+      "./plugins/withAdiRegistration"
     ],
+    "assetBundlePatterns": ["assets/*"],
     "extra": {
       "eas": {
         "projectId": "a68e7420-6668-430f-86b2-2be5f383f06e"
