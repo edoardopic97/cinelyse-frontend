@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, ScrollView, ActivityIndicator, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useAuth } from '../contexts/AuthContext';
-import { setUserProfile } from '../lib/firestore';
+import { setUserProfile, updateUserProfile } from '../lib/firestore';
 
 const AVATARS = ['🎬','🎥','🎞️','🍿','🎭','🎪','🎨','🎯','🎮','🎲','🎸','🎹','🚀','🌟','⭐','✨','🔥','💫','🦁','🐯','🐻','🐼','🐨','🦊'];
 
@@ -19,6 +19,8 @@ export default function EditProfileModal({ visible, onClose, onSaved }: Props) {
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
   const [avatar, setAvatar] = useState(profile?.photoURL || AVATARS[0]);
   const [showAvatars, setShowAvatars] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [imageUrl, setImageUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
@@ -49,6 +51,7 @@ export default function EditProfileModal({ visible, onClose, onSaved }: Props) {
     setSaving(true);
     try {
       await setUserProfile(user.uid, { email: user.email || '', displayName: displayName || undefined, photoURL: avatar });
+      await updateUserProfile(user.uid, { displayName: displayName || undefined, photoURL: avatar });
       await refreshProfile();
       onSaved();
       onClose();
@@ -65,11 +68,42 @@ export default function EditProfileModal({ visible, onClose, onSaved }: Props) {
         <ScrollView contentContainerStyle={s.body}>
           <Text style={s.label}>AVATAR</Text>
           <View style={s.avatarRow}>
-            <View style={s.avatarPreview}><Text style={{ fontSize: 40 }}>{avatar}</Text></View>
-            <TouchableOpacity style={s.changeBtn} onPress={() => setShowAvatars(!showAvatars)}>
-              <Text style={s.changeBtnText}>{showAvatars ? 'Hide' : 'Change Avatar'}</Text>
-            </TouchableOpacity>
+            <View style={s.avatarPreview}>
+              {avatar?.startsWith('http')
+                ? <Image source={{ uri: avatar }} style={{ width: '100%', height: '100%', borderRadius: 12 }} />
+                : <Text style={{ fontSize: 40 }}>{avatar}</Text>}
+            </View>
+            <View style={{ gap: 8 }}>
+              <TouchableOpacity style={s.changeBtn} onPress={() => { setShowAvatars(!showAvatars); setShowUrlInput(false); }}>
+                <Text style={s.changeBtnText}>{showAvatars ? 'Hide Emojis' : 'Choose Emoji'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.changeBtn} onPress={() => { setShowUrlInput(!showUrlInput); setShowAvatars(false); }}>
+                <Ionicons name="link-outline" size={14} color={colors.red} />
+                <Text style={s.changeBtnText}>{showUrlInput ? 'Hide' : 'Image URL'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
+          {showUrlInput && (
+            <View style={s.urlSection}>
+              <TextInput
+                style={s.input}
+                value={imageUrl}
+                onChangeText={setImageUrl}
+                placeholder="Paste image URL (https://...)"
+                placeholderTextColor={colors.subtle}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+              />
+              <TouchableOpacity
+                style={[s.saveBtn, { marginTop: 8, opacity: imageUrl.startsWith('http') ? 1 : 0.4 }]}
+                disabled={!imageUrl.startsWith('http')}
+                onPress={() => { setAvatar(imageUrl.trim()); setShowUrlInput(false); setImageUrl(''); }}
+              >
+                <Text style={s.saveText}>Use This Image</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           {showAvatars && (
             <View style={s.avatarGrid}>
               {AVATARS.map(a => (
@@ -146,7 +180,8 @@ const s = StyleSheet.create({
   label: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 0.8 },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   avatarPreview: { width: 80, height: 80, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 2, borderColor: 'rgba(229,9,20,0.3)', alignItems: 'center', justifyContent: 'center' },
-  changeBtn: { backgroundColor: 'rgba(229,9,20,0.2)', borderWidth: 1, borderColor: 'rgba(229,9,20,0.4)', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 10 },
+  changeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(229,9,20,0.2)', borderWidth: 1, borderColor: 'rgba(229,9,20,0.4)', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 10 },
+  urlSection: { backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 12 },
   changeBtnText: { color: colors.red, fontSize: 14, fontWeight: '600' },
   avatarGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   avatarOption: { width: 56, height: 56, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },

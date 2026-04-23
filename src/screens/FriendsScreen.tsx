@@ -505,7 +505,7 @@ export default function FriendsScreen() {
                     </TouchableOpacity>
                     {showFriendGenreDrop && (
                       <View style={s.friendGenreDropdown}>
-                        <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator nestedScrollEnabled>
+                        <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator nestedScrollEnabled>
                           <TouchableOpacity style={[s.friendGenreDropItem, friendGenre === 'all' && s.friendGenreDropItemActive]} onPress={() => { setFriendGenre('all'); setShowFriendGenreDrop(false); }}>
                             <Text style={[s.friendGenreDropText, friendGenre === 'all' && { color: colors.red }]}>All Genres</Text>
                             {friendGenre === 'all' && <Ionicons name="checkmark" size={14} color={colors.red} style={{ marginLeft: 'auto' }} />}

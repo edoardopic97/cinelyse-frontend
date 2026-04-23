@@ -9,9 +9,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { getGenreColor } from '../theme/genreColors';
 import { useAuth } from '../contexts/AuthContext';
-import { subscribeToAllMovies, getUserStats, subscribeToSearchCount, getFriends, updateUserProfile, type MovieActivity } from '../lib/firestore';
+import { subscribeToAllMovies, getUserStats, subscribeToSearchCount, getFriends, updateUserProfile, setMovieActivity, type MovieActivity } from '../lib/firestore';
 import { sortMovies, filterByGenre, searchByTitle, getUniqueGenres } from '../lib/movieUtils';
-import { fetchAvailableProviders, type StreamingProvider } from '../api/client';
+import { fetchAvailableProviders, fetchMovieDetails, type StreamingProvider } from '../api/client';
 import { useCredits } from '../hooks/useCredits';
 import EditProfileModal from '../components/EditProfileModal';
 import ProfileMovieModal from '../components/ProfileMovieModal';
@@ -84,6 +84,28 @@ export default function ProfileScreen() {
     if (!user?.uid) return;
     getUserStats(user.uid).then(setStats).catch(() => {});
   }, [watched.length, toWatch.length, favs.length]);
+
+  // Backfill missing genres for saved movies
+  useEffect(() => {
+    if (!user?.uid) return;
+    const all = [...watched, ...toWatch, ...favs];
+    const seen = new Set<string>();
+    const missing = all.filter(m => {
+      if (seen.has(m.movieId)) return false;
+      seen.add(m.movieId);
+      return (!m.genres || m.genres.length === 0) && m.tmdbID;
+    });
+    if (missing.length === 0) return;
+    missing.slice(0, 10).forEach(async (m) => {
+      try {
+        const details = await fetchMovieDetails(m.tmdbID!, m.type || 'movie');
+        const genres = details.Genre ? details.Genre.split(',').map((g: string) => g.trim()).filter(Boolean) : [];
+        if (genres.length > 0) {
+          await setMovieActivity(user!.uid, m.movieId, { ...m, genres });
+        }
+      } catch {}
+    });
+  }, [user?.uid, watched.length, toWatch.length, favs.length]);
 
   const filtered = useMemo(() => {
     let m = watched;
@@ -254,7 +276,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
               {showGenreDrop && (
                 <View style={s.genreDropdown}>
-                  <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator nestedScrollEnabled>
+                  <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator nestedScrollEnabled>
                     <TouchableOpacity style={[s.sortDropItem, opts.genre === 'all' && s.sortDropItemActive]} onPress={() => { opts.setGenre('all'); setShowGenreDrop(false); }}>
                       <Text style={[s.sortDropText, opts.genre === 'all' && { color: colors.red }]}>All Genres</Text>
                       {opts.genre === 'all' && <Ionicons name="checkmark" size={14} color={colors.red} style={{ marginLeft: 'auto' }} />}
