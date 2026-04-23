@@ -10,6 +10,8 @@
         "buildType": "apk"
       }
     },
-    "production": {}
+    "production": {
+      "channel": "preview"
+    }
   }
 }
