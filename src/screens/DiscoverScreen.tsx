@@ -12,6 +12,8 @@ import { searchMovies, fetchTrending, fetchRecommended, fetchAvailableProviders,
 import { getFriendlyError } from '../utils/errorMessages';
 import { useAuth } from '../contexts/AuthContext';
 import { useCredits } from '../hooks/useCredits';
+import { useRewardedAd } from '../hooks/useRewardedAd';
+import { useSubscription } from '../hooks/useSubscription';
 import { subscribeToSearchCount, acceptFriendRequest, rejectFriendRequest, deleteNotification, subscribeToAllMovies, type MovieActivity } from '../lib/firestore';
 import ProfileRing, { getTier } from '../components/ProfileRing';
 import PremiumModal from '../components/PremiumModal';
@@ -151,7 +153,9 @@ function PremiumPicksSection({ onUnlock }: { onUnlock?: () => void }) {
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
   const { user, profile } = useAuth();
-  const { credits, maxCredits, isPremium, refresh, consume, refund, setPremium } = useCredits(user?.uid);
+  const { credits, maxCredits, isPremium, refresh, consume, refund, grantAdCredit, setPremium } = useCredits(user?.uid);
+  const { loaded: adLoaded, showAd } = useRewardedAd();
+  const { buy, restore, loading: purchaseLoading } = useSubscription(setPremium);
   const [showPremium, setShowPremium] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MovieResult[]>([]);
@@ -307,7 +311,9 @@ export default function DiscoverScreen() {
     if (!searchQuery) return;
 
     if (aiMode && !consume()) {
-      if (!isPremium) {
+      if (adLoaded) {
+        showAd(() => { grantAdCredit().then(() => handleSearch(searchQuery)); });
+      } else if (!isPremium) {
         setShowPremium(true);
       } else {
         setError(`All ${maxCredits} AI credits used today. Resets in ${getResetTime()}`);
@@ -366,7 +372,9 @@ export default function DiscoverScreen() {
   const handleLoadMore = async () => {
     if (!lastQuery || loadingMore) return;
     if (aiMode && !consume()) {
-      if (!isPremium) {
+      if (adLoaded) {
+        showAd(() => { grantAdCredit().then(() => handleLoadMore()); });
+      } else if (!isPremium) {
         setShowPremium(true);
       } else {
         setError(`All ${maxCredits} AI credits used today. Resets in ${getResetTime()}`);
@@ -582,15 +590,23 @@ export default function DiscoverScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Low credit banner */}
-          {aiMode && credits <= 1 && credits !== Infinity && (
+          {/* Credit banner with watch-ad option */}
+          {aiMode && !isPremium && credits !== Infinity && (
             <View style={s.creditBanner}>
-              <Ionicons name={credits === 0 ? 'alert-circle' : 'warning'} size={16} color={credits === 0 ? colors.red : colors.gold} />
+              <Ionicons name={credits === 0 ? 'alert-circle' : 'flash'} size={16} color={credits === 0 ? colors.red : colors.gold} />
               <Text style={[s.creditBannerText, credits === 0 && { color: colors.red }]}>
                 {credits === 0
                   ? `No AI credits left · Resets in ${getResetTime()}`
-                  : `1 AI credit left · Resets in ${getResetTime()}`}
+                  : `${credits}/${maxCredits} credits · Resets in ${getResetTime()}`}
               </Text>
+              <TouchableOpacity
+                style={[s.watchAdBtn, !adLoaded && { opacity: 0.4 }]}
+                onPress={() => adLoaded && showAd(() => grantAdCredit())}
+                disabled={!adLoaded}
+              >
+                <Ionicons name="play-circle" size={14} color={colors.white} />
+                <Text style={s.watchAdText}>+1 Free</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -624,7 +640,7 @@ export default function DiscoverScreen() {
         <View style={{ flex: 1, paddingHorizontal: 22 }}>
           {aiMode ? (
             !isPremium ? (
-              <PremiumPicksSection onUnlock={() => { setPremium(true); refresh(); }} />
+              <PremiumPicksSection onUnlock={buy} />
             ) : recLoading ? (
               <TrendingSkeleton />
             ) : favorites.length === 0 ? (
@@ -804,10 +820,11 @@ export default function DiscoverScreen() {
         <PremiumModal
           visible={showPremium}
           onClose={() => setShowPremium(false)}
-          onUpgrade={() => { setPremium(true); setShowPremium(false); refresh(); }}
-          onDowngrade={() => { setPremium(false); setShowPremium(false); refresh(); }}
+          onUpgrade={() => { buy(); setShowPremium(false); }}
+          onRestore={() => { restore(); setShowPremium(false); }}
           isPremium={isPremium}
           creditsLeft={credits}
+          purchaseLoading={purchaseLoading}
         />
         <LevelUpModal visible={showLevelUp} tier={levelUpTier} onClose={() => setShowLevelUp(false)} />
       </Pressable>
@@ -896,10 +913,11 @@ export default function DiscoverScreen() {
       <PremiumModal
         visible={showPremium}
         onClose={() => setShowPremium(false)}
-        onUpgrade={() => { setPremium(true); setShowPremium(false); refresh(); }}
-        onDowngrade={() => { setPremium(false); setShowPremium(false); refresh(); }}
+        onUpgrade={() => { buy(); setShowPremium(false); }}
+        onRestore={() => { restore(); setShowPremium(false); }}
         isPremium={isPremium}
         creditsLeft={credits}
+        purchaseLoading={purchaseLoading}
       />
       <LevelUpModal visible={showLevelUp} tier={levelUpTier} onClose={() => setShowLevelUp(false)} />
     </View>
@@ -1051,6 +1069,8 @@ const s = StyleSheet.create({
   searchBtn: { height: 50, width: 58, borderRadius: 16, alignItems: 'center', justifyContent: 'center', shadowColor: 'rgba(200,40,40,0.45)', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 1, shadowRadius: 20, elevation: 8 },
   playIcon: { color: colors.white, fontSize: 20 },
   creditBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,200,0,0.08)', borderWidth: 1, borderColor: 'rgba(255,180,0,0.2)', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 12 },
+  watchAdBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.red, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+  watchAdText: { color: colors.white, fontSize: 11, fontWeight: '700' },
   creditBannerText: { color: colors.gold, fontSize: 12, fontWeight: '600', flex: 1 },
   filterRow: { flexDirection: 'row', gap: 8, marginBottom: 20, alignItems: 'center', width: '100%', zIndex: 99 },
   pill: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.07)', flexDirection: 'row', alignItems: 'center' },

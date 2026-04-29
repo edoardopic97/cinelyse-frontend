@@ -1,9 +1,12 @@
 {
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-4172706723924366~9636714840"
+  },
   "expo": {
     "name": "Cinelyse",
     "slug": "cinelyse-tmdb",
     "scheme": "cinelyse",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -17,6 +20,7 @@
       "bundleIdentifier": "com.cinelyse.app"
     },
     "android": {
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
@@ -63,7 +67,9 @@
       ],
       "@react-native-google-signin/google-signin",
       "expo-localization",
-      "./plugins/withAdiRegistration"
+      "./plugins/withAdiRegistration",
+      "react-native-iap",
+      "react-native-google-mobile-ads"
     ],
     "assetBundlePatterns": ["assets/*"],
     "extra": {

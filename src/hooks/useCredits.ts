@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -83,5 +83,20 @@ export function useCredits(userId?: string) {
     setCredits(next);
   }, []);
 
-  return { credits, maxCredits, isPremium, refresh, consume, refund, setPremium };
+  const grantAdCredit = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const ref = doc(db, 'users', userId, 'credits', todayKey());
+      const snap = await getDoc(ref);
+      const used = snap.exists() ? snap.data().used || 0 : 0;
+      if (used > 0) {
+        await updateDoc(ref, { used: increment(-1) });
+      }
+      await refresh();
+    } catch {
+      refund();
+    }
+  }, [userId, refresh, refund]);
+
+  return { credits, maxCredits, isPremium, refresh, consume, refund, grantAdCredit, setPremium };
 }

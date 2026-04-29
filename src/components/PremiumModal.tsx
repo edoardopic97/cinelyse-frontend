@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView,
+  View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,9 +11,11 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   onUpgrade: () => void;
+  onRestore?: () => void;
   onDowngrade?: () => void;
   isPremium?: boolean;
   creditsLeft?: number;
+  purchaseLoading?: boolean;
 }
 
 const PERKS = [
@@ -24,7 +26,7 @@ const PERKS = [
   { icon: 'star', color: colors.gold, title: 'Early Features', sub: 'Be the first to try new features' },
 ];
 
-export default function PremiumModal({ visible, onClose, onUpgrade, onDowngrade, isPremium, creditsLeft }: Props) {
+export default function PremiumModal({ visible, onClose, onUpgrade, onRestore, onDowngrade, isPremium, creditsLeft, purchaseLoading }: Props) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -121,13 +123,17 @@ export default function PremiumModal({ visible, onClose, onUpgrade, onDowngrade,
               </>
             ) : (
               <>
-                <TouchableOpacity style={s.ctaBtn} onPress={onUpgrade} activeOpacity={0.85}>
+                <TouchableOpacity style={s.ctaBtn} onPress={onUpgrade} disabled={purchaseLoading} activeOpacity={0.85}>
                   <LinearGradient colors={['#c0392b', '#e74c3c', '#c0392b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.ctaGradient}>
-                    <Text style={s.ctaStar}>✦</Text>
-                    <Text style={s.ctaText}>Upgrade to Premium</Text>
+                    {purchaseLoading ? <ActivityIndicator color="#fff" size="small" /> : <><Text style={s.ctaStar}>✦</Text><Text style={s.ctaText}>Upgrade to Premium</Text></>}
                   </LinearGradient>
                 </TouchableOpacity>
                 <Text style={s.ctaSub}>Cancel anytime · No commitment</Text>
+                {onRestore && (
+                  <TouchableOpacity style={s.skipBtn} onPress={onRestore} disabled={purchaseLoading}>
+                    <Text style={s.skipText}>Restore purchase</Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity style={s.skipBtn} onPress={onClose}>
                   <Text style={s.skipText}>Maybe later</Text>
                 </TouchableOpacity>

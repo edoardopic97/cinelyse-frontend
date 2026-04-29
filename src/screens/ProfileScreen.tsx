@@ -13,6 +13,7 @@ import { subscribeToAllMovies, getUserStats, subscribeToSearchCount, getFriends,
 import { sortMovies, filterByGenre, searchByTitle, getUniqueGenres } from '../lib/movieUtils';
 import { fetchAvailableProviders, fetchMovieDetails, type StreamingProvider } from '../api/client';
 import { useCredits } from '../hooks/useCredits';
+import { useSubscription } from '../hooks/useSubscription';
 import EditProfileModal from '../components/EditProfileModal';
 import ProfileMovieModal from '../components/ProfileMovieModal';
 import ProfileRing, { getTier, getNextTier, TIER_META, type Tier } from '../components/ProfileRing';
@@ -31,6 +32,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, profile, logout } = useAuth();
   const { isPremium, setPremium, refresh: refreshCredits } = useCredits(user?.uid);
+  const { buy, restore, loading: purchaseLoading } = useSubscription(setPremium);
   const [watched, setWatched] = useState<MovieActivity[]>([]);
   const [toWatch, setToWatch] = useState<MovieActivity[]>([]);
   const [favs, setFavs] = useState<MovieActivity[]>([]);
@@ -479,11 +481,13 @@ export default function ProfileScreen() {
                   </View>
                   <Text style={ps.overlayTitle}>{'Unlock Your Viewing\nInsights'}</Text>
                   <Text style={ps.overlaySub}>Your stats are ready. See your genres, ratings, and activity — upgrade to Premium.</Text>
-                  <TouchableOpacity style={ps.unlockBtn} onPress={() => { setPremium(true); refreshCredits(); }} activeOpacity={0.85}>
+                  <TouchableOpacity style={ps.unlockBtn} onPress={buy} disabled={purchaseLoading} activeOpacity={0.85}>
                     <LinearGradient colors={['#c0392b', '#e74c3c']} style={ps.unlockGradient}>
-                      <Text style={ps.unlockStar}>✦</Text>
-                      <Text style={ps.unlockText}>Unlock with Premium</Text>
+                      {purchaseLoading ? <ActivityIndicator color="#fff" size="small" /> : <><Text style={ps.unlockStar}>✦</Text><Text style={ps.unlockText}>Unlock with Premium</Text></>}
                     </LinearGradient>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={restore} disabled={purchaseLoading}>
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 4 }}>Restore purchase</Text>
                   </TouchableOpacity>
                   <View style={ps.perks}>
                     {['Detailed genre breakdown', 'Personal rating analytics', 'Full activity overview'].map((perk, i) => (
@@ -531,11 +535,13 @@ export default function ProfileScreen() {
                   </View>
                   <Text style={ps.overlayTitle}>{'Filter by Your\nStreaming Services'}</Text>
                   <Text style={ps.overlaySub}>Select your platforms and only see content available to you.</Text>
-                  <TouchableOpacity style={ps.unlockBtn} onPress={() => { setPremium(true); refreshCredits(); }} activeOpacity={0.85}>
+                  <TouchableOpacity style={ps.unlockBtn} onPress={buy} disabled={purchaseLoading} activeOpacity={0.85}>
                     <LinearGradient colors={['#c0392b', '#e74c3c']} style={ps.unlockGradient}>
-                      <Text style={ps.unlockStar}>✦</Text>
-                      <Text style={ps.unlockText}>Unlock with Premium</Text>
+                      {purchaseLoading ? <ActivityIndicator color="#fff" size="small" /> : <><Text style={ps.unlockStar}>✦</Text><Text style={ps.unlockText}>Unlock with Premium</Text></>}
                     </LinearGradient>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={restore} disabled={purchaseLoading}>
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 4 }}>Restore purchase</Text>
                   </TouchableOpacity>
                   <View style={ps.perks}>
                     {['Filter recommendations by platform', 'Region-aware availability', 'Works across all searches'].map((perk, i) => (
