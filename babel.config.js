@@ -8,7 +8,6 @@ module.exports = function (api) {
         moduleName: '@env',
         path: '.env',
       }],
-      'react-native-worklets/plugin',
       'react-native-reanimated/plugin',
     ],
   };
