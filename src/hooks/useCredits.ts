@@ -18,14 +18,13 @@ async function fetchRemaining(userId: string, maxCredits: number): Promise<numbe
     const used = snap.exists() ? snap.data().used || 0 : 0;
     return Math.max(maxCredits - used, 0);
   } catch {
-    // Fallback to cache if offline
     try {
       const ref = doc(db, 'users', userId, 'credits', todayKey());
       const snap = await getDoc(ref);
       const used = snap.exists() ? snap.data().used || 0 : 0;
       return Math.max(maxCredits - used, 0);
     } catch {
-      return 0;
+      return maxCredits;
     }
   }
 }

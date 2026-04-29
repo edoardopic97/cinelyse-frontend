@@ -312,8 +312,9 @@ export default function DiscoverScreen() {
 
     if (aiMode && !consume()) {
       if (adLoaded && !adCreditUsed) {
-        showAd(() => { grantAdCredit().then(() => handleSearch(searchQuery)); });
-      } else if (!isPremium) {
+        showAd(() => {});
+      }
+      if (!isPremium) {
         setShowPremium(true);
       } else {
         setError(`All ${maxCredits} AI credits used today. Resets in ${getResetTime()}`);
@@ -373,8 +374,9 @@ export default function DiscoverScreen() {
     if (!lastQuery || loadingMore) return;
     if (aiMode && !consume()) {
       if (adLoaded && !adCreditUsed) {
-        showAd(() => { grantAdCredit().then(() => handleLoadMore()); });
-      } else if (!isPremium) {
+        showAd(() => {});
+      }
+      if (!isPremium) {
         setShowPremium(true);
       } else {
         setError(`All ${maxCredits} AI credits used today. Resets in ${getResetTime()}`);
