@@ -153,7 +153,7 @@ function PremiumPicksSection({ onUnlock }: { onUnlock?: () => void }) {
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
   const { user, profile } = useAuth();
-  const { credits, maxCredits, isPremium, refresh, consume, refund, grantAdCredit, setPremium } = useCredits(user?.uid);
+  const { credits, maxCredits, isPremium, adCreditUsed, refresh, consume, refund, grantAdCredit, setPremium } = useCredits(user?.uid);
   const { loaded: adLoaded, showAd } = useRewardedAd();
   const { buy, restore, loading: purchaseLoading } = useSubscription(setPremium);
   const [showPremium, setShowPremium] = useState(false);
@@ -311,7 +311,7 @@ export default function DiscoverScreen() {
     if (!searchQuery) return;
 
     if (aiMode && !consume()) {
-      if (adLoaded) {
+      if (adLoaded && !adCreditUsed) {
         showAd(() => { grantAdCredit().then(() => handleSearch(searchQuery)); });
       } else if (!isPremium) {
         setShowPremium(true);
@@ -372,7 +372,7 @@ export default function DiscoverScreen() {
   const handleLoadMore = async () => {
     if (!lastQuery || loadingMore) return;
     if (aiMode && !consume()) {
-      if (adLoaded) {
+      if (adLoaded && !adCreditUsed) {
         showAd(() => { grantAdCredit().then(() => handleLoadMore()); });
       } else if (!isPremium) {
         setShowPremium(true);
@@ -599,14 +599,16 @@ export default function DiscoverScreen() {
                   ? `No AI credits left · Resets in ${getResetTime()}`
                   : `${credits}/${maxCredits} credits · Resets in ${getResetTime()}`}
               </Text>
-              <TouchableOpacity
-                style={[s.watchAdBtn, !adLoaded && { opacity: 0.4 }]}
-                onPress={() => adLoaded && showAd(() => grantAdCredit())}
-                disabled={!adLoaded}
-              >
-                <Ionicons name="play-circle" size={14} color={colors.white} />
-                <Text style={s.watchAdText}>+1 Free</Text>
-              </TouchableOpacity>
+              {!adCreditUsed && (
+                <TouchableOpacity
+                  style={[s.watchAdBtn, !adLoaded && { opacity: 0.4 }]}
+                  onPress={() => adLoaded && showAd(() => grantAdCredit())}
+                  disabled={!adLoaded}
+                >
+                  <Ionicons name="play-circle" size={14} color={colors.white} />
+                  <Text style={s.watchAdText}>+1 Free</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 

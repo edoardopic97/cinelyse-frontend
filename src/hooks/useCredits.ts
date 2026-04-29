@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { doc, getDoc, setDoc, updateDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, increment, getDocFromServer } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -14,11 +14,19 @@ function todayKey() {
 async function fetchRemaining(userId: string, maxCredits: number): Promise<number> {
   try {
     const ref = doc(db, 'users', userId, 'credits', todayKey());
-    const snap = await getDoc(ref);
+    const snap = await getDocFromServer(ref);
     const used = snap.exists() ? snap.data().used || 0 : 0;
     return Math.max(maxCredits - used, 0);
   } catch {
-    return maxCredits;
+    // Fallback to cache if offline
+    try {
+      const ref = doc(db, 'users', userId, 'credits', todayKey());
+      const snap = await getDoc(ref);
+      const used = snap.exists() ? snap.data().used || 0 : 0;
+      return Math.max(maxCredits - used, 0);
+    } catch {
+      return 0;
+    }
   }
 }
 
@@ -26,21 +34,24 @@ export function useCredits(userId?: string) {
   const [isPremium, setIsPremiumState] = useState(false);
   const maxCredits = isPremium ? PREMIUM_CREDITS : FREE_CREDITS;
   const [credits, setCredits] = useState(maxCredits);
+  const [adCreditUsed, setAdCreditUsed] = useState(false);
   const creditsRef = useRef(credits);
   creditsRef.current = credits;
 
-  // Load premium status from Firestore (source of truth), fallback to AsyncStorage
+  // Load premium status and ad credit usage from Firestore
   useEffect(() => {
     if (!userId) return;
-    // Read cached value immediately for fast UI
     AsyncStorage.getItem(`premium_${userId}`).then(val => {
       if (val === 'true') setIsPremiumState(true);
     }).catch(() => {});
-    // Then sync from Firestore
     getDoc(doc(db, 'users', userId)).then(snap => {
       const val = snap.exists() && snap.data().premium === true;
       setIsPremiumState(val);
       AsyncStorage.setItem(`premium_${userId}`, val ? 'true' : 'false').catch(() => {});
+    }).catch(() => {});
+    // Check if ad credit already used today
+    getDoc(doc(db, 'users', userId, 'adCredits', todayKey())).then(snap => {
+      setAdCreditUsed(snap.exists() && snap.data().used === true);
     }).catch(() => {});
   }, [userId]);
 
@@ -84,7 +95,7 @@ export function useCredits(userId?: string) {
   }, []);
 
   const grantAdCredit = useCallback(async () => {
-    if (!userId) return;
+    if (!userId || adCreditUsed) return;
     try {
       const ref = doc(db, 'users', userId, 'credits', todayKey());
       const snap = await getDoc(ref);
@@ -92,11 +103,13 @@ export function useCredits(userId?: string) {
       if (used > 0) {
         await updateDoc(ref, { used: increment(-1) });
       }
+      await setDoc(doc(db, 'users', userId, 'adCredits', todayKey()), { used: true }, { merge: true });
+      setAdCreditUsed(true);
       await refresh();
     } catch {
       refund();
     }
-  }, [userId, refresh, refund]);
+  }, [userId, adCreditUsed, refresh, refund]);
 
-  return { credits, maxCredits, isPremium, refresh, consume, refund, grantAdCredit, setPremium };
+  return { credits, maxCredits, isPremium, adCreditUsed, refresh, consume, refund, grantAdCredit, setPremium };
 }
