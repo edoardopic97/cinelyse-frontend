@@ -20,6 +20,7 @@ interface Props {
 
 const PERKS = [
   { icon: 'flash', color: colors.gold, title: '15 AI Credits / Day', sub: 'Up from 3 — search 5x more with AI' },
+  { icon: 'ban', color: '#60a5fa', title: 'Ad-Free Experience', sub: 'No video ads — uninterrupted discovery' },
   { icon: 'heart', color: '#ff6b6b', title: 'Personalized Picks', sub: 'Recommendations based on your taste' },
   { icon: 'bar-chart', color: '#a78bfa', title: 'Profile Stats', sub: 'Genre breakdown, ratings & activity insights' },
   { icon: 'infinite', color: '#4ade80', title: 'Unlimited Title Search', sub: 'Search by title with no daily limits' },

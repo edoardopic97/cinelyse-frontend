@@ -57,7 +57,7 @@ export function useSubscription(onPremiumChange: (val: boolean) => Promise<void>
   const buy = useCallback(async () => {
     const iap = iapRef.current;
     if (!iap || !connected) {
-      Alert.alert('Store unavailable', 'Could not connect to Google Play.');
+      Alert.alert('Store unavailable', `Could not connect to Google Play. (iap: ${!!iap}, connected: ${connected})`);
       return;
     }
     setLoading(true);
