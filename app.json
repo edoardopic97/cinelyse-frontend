@@ -1,7 +1,4 @@
 {
-  "react-native-google-mobile-ads": {
-    "android_app_id": "ca-app-pub-4172706723924366~9636714840"
-  },
   "expo": {
     "name": "Cinelyse",
     "slug": "cinelyse-tmdb",
@@ -69,7 +66,12 @@
       "expo-localization",
       "./plugins/withAdiRegistration",
       "react-native-iap",
-      "react-native-google-mobile-ads"
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-4172706723924366~9636714840"
+        }
+      ]
     ],
     "assetBundlePatterns": ["assets/*"],
     "extra": {

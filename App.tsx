@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
+import mobileAds from 'react-native-google-mobile-ads';
 import { AuthProvider } from './src/contexts/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
 
@@ -44,6 +45,10 @@ export default function App() {
   const responseListener = useRef<Notifications.EventSubscription>();
 
   useEffect(() => {
+    mobileAds()
+      .initialize()
+      .catch((err) => console.warn('[Ads] init failed:', err));
+
     notificationListener.current = Notifications.addNotificationReceivedListener(() => {});
     responseListener.current = Notifications.addNotificationResponseReceivedListener(() => {});
     return () => {
