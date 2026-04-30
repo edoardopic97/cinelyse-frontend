@@ -156,6 +156,8 @@ export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
   const { user, profile } = useAuth();
   const { credits, maxCredits, isPremium, adCreditUsed, refresh, consume, refund, grantAdCredit, setPremium } = useCredits(user?.uid);
+  const [adCreditUsedLocal, setAdCreditUsedLocal] = useState(false);
+  const adButtonHidden = adCreditUsed || adCreditUsedLocal;
   const { loaded: adLoaded, showAd } = useRewardedAd();
   const { loaded: interstitialLoaded, showAd: showInterstitial } = useInterstitialAd();
   const { buy, restore, loading: purchaseLoading } = useSubscription(setPremium);
@@ -609,10 +611,14 @@ export default function DiscoverScreen() {
                   ? `${t.noCreditsLeft} · ${t.creditsResetIn} ${getResetTime()}`
                   : `${credits}/${maxCredits} ${t.credits} · ${t.creditsResetIn} ${getResetTime()}`}
               </Text>
-              {!adCreditUsed && (
+              {!adButtonHidden && (
                 <TouchableOpacity
                   style={[s.watchAdBtn, !adLoaded && { opacity: 0.4 }]}
-                  onPress={() => adLoaded && showAd(() => grantAdCredit())}
+                  onPress={() => {
+                    if (!adLoaded) return;
+                    setAdCreditUsedLocal(true);
+                    showAd(() => grantAdCredit());
+                  }}
                   disabled={!adLoaded}
                 >
                   <Ionicons name="play-circle" size={14} color={colors.white} />
