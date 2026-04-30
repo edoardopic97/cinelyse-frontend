@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getEnrichedFriends, getMovieList, type MovieActivity, type FriendSummary } from '../lib/firestore';
 import { fetchTrending, fetchMovieDetails, type MovieResult } from '../api/client';
 import MovieCard from '../components/MovieCard';
+import t from '../i18n';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = (SCREEN_W - 48 - 16) / 3;
@@ -111,7 +112,7 @@ function HorizontalFriendRow({ items, limit, onLoadMore }: { items: FriendMovie[
       {hasMore && (
         <TouchableOpacity style={s.loadMoreCard} onPress={onLoadMore} activeOpacity={0.7}>
           <Ionicons name="chevron-forward" size={20} color={colors.red} />
-          <Text style={s.loadMoreCardText}>{items.length - limit} more</Text>
+          <Text style={s.loadMoreCardText}>{items.length - limit} {t.more}</Text>
         </TouchableOpacity>
       )}
     </ScrollView>
@@ -264,8 +265,8 @@ export default function HomeScreen() {
     <View style={[s.container, { paddingTop: insets.top }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
-          <Text style={s.pageTitle}>Home</Text>
-          <Text style={s.pageSubtitle}>What your friends are watching</Text>
+          <Text style={s.pageTitle}>{t.home}</Text>
+          <Text style={s.pageSubtitle}>{t.whatFriendsWatching}</Text>
         </View>
 
         {loading ? (
@@ -284,38 +285,38 @@ export default function HomeScreen() {
           <View style={{ gap: 24, marginTop: 8 }}>
             {/* Highest Rated by Friends */}
             <View>
-              <SectionHeader icon="star" color={colors.gold} title="Highest Rated by Friends" />
+              <SectionHeader icon="star" color={colors.gold} title={t.highestRatedByFriends} />
               {highestRated.length > 0 ? (
                 <HorizontalFriendRow items={highestRated} limit={showLimits.rated} onLoadMore={() => expandLimit('rated')} />
               ) : (
-                <EmptySection message={hasFriends ? "No rated movies from friends yet" : "Add friends to see what they're rating"} />
+                <EmptySection message={hasFriends ? t.noRatedFromFriends : t.addFriendsRating} />
               )}
             </View>
 
             {/* Friends' Favorites */}
             <View>
-              <SectionHeader icon="heart" color="#ff6b6b" title="Friends' Favorites" />
+              <SectionHeader icon="heart" color="#ff6b6b" title={t.friendsFavorites} />
               {friendFavorites.length > 0 ? (
                 <HorizontalFriendRow items={friendFavorites} limit={showLimits.favorites} onLoadMore={() => expandLimit('favorites')} />
               ) : (
-                <EmptySection message={hasFriends ? "No favorites from friends yet" : "Add friends to see their favorites"} />
+                <EmptySection message={hasFriends ? t.noFavoritesFromFriends : t.addFriendsFavorites} />
               )}
             </View>
 
             {/* Friends' Watchlist */}
             <View>
-              <SectionHeader icon="bookmark" color={colors.gold} title="Friends Want to Watch" />
+              <SectionHeader icon="bookmark" color={colors.gold} title={t.friendsWantToWatch} />
               {friendWatchlist.length > 0 ? (
                 <HorizontalFriendRow items={friendWatchlist} limit={showLimits.watchlist} onLoadMore={() => expandLimit('watchlist')} />
               ) : (
-                <EmptySection message={hasFriends ? "No watchlist items from friends yet" : "Add friends to see their watchlist"} />
+                <EmptySection message={hasFriends ? t.noWatchlistFromFriends : t.addFriendsWatchlist} />
               )}
             </View>
 
             {/* Trending Movies */}
             {trendingMovies.length > 0 && (
               <View>
-                <SectionHeader icon="flame" color={colors.red} title="Trending Movies" />
+                <SectionHeader icon="flame" color={colors.red} title={t.trendingMovies} />
                 <HorizontalMovieRow movies={trendingMovies} />
               </View>
             )}
@@ -323,7 +324,7 @@ export default function HomeScreen() {
             {/* Trending TV */}
             {trendingTV.length > 0 && (
               <View>
-                <SectionHeader icon="flame" color={colors.red} title="Trending TV Shows" />
+                <SectionHeader icon="flame" color={colors.red} title={t.trendingTV} />
                 <HorizontalMovieRow movies={trendingTV} />
               </View>
             )}

@@ -14,6 +14,7 @@ import { sortMovies, filterByGenre, searchByTitle, getUniqueGenres } from '../li
 import { fetchAvailableProviders, fetchMovieDetails, type StreamingProvider } from '../api/client';
 import { useCredits } from '../hooks/useCredits';
 import { useSubscription } from '../hooks/useSubscription';
+import t from '../i18n';
 import EditProfileModal from '../components/EditProfileModal';
 import ProfileMovieModal from '../components/ProfileMovieModal';
 import ProfileRing, { getTier, getNextTier, TIER_META, type Tier } from '../components/ProfileRing';
@@ -160,17 +161,17 @@ export default function ProfileScreen() {
   const initials = displayName.charAt(0).toUpperCase();
   const isEmoji = profile?.photoURL && !profile.photoURL.startsWith('http');
 
-  const handleLogout = () => Alert.alert('Sign Out', 'Are you sure?', [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Sign Out', style: 'destructive', onPress: logout },
+  const handleLogout = () => Alert.alert(t.signOut, t.signOutConfirm, [
+    { text: t.cancel, style: 'cancel' },
+    { text: t.signOut, style: 'destructive', onPress: logout },
   ]);
 
   const tabs: { id: Tab; label: string; icon: string; count: number | null; premium?: boolean }[] = [
-    { id: 'watched', label: 'Watched', icon: 'eye-outline', count: watched.length },
-    { id: 'watchlist', label: 'Watchlist', icon: 'bookmark-outline', count: toWatch.length },
-    { id: 'favorites', label: 'Favs', icon: 'heart-outline', count: favs.length },
-    { id: 'stats', label: 'Stats', icon: 'bar-chart-outline', count: null, premium: true },
-    { id: 'services', label: 'Services', icon: 'tv-outline', count: null, premium: true },
+    { id: 'watched', label: t.watched, icon: 'eye-outline', count: watched.length },
+    { id: 'watchlist', label: t.watchlist, icon: 'bookmark-outline', count: toWatch.length },
+    { id: 'favorites', label: t.favs, icon: 'heart-outline', count: favs.length },
+    { id: 'stats', label: t.stats, icon: 'bar-chart-outline', count: null, premium: true },
+    { id: 'services', label: t.services, icon: 'tv-outline', count: null, premium: true },
   ];
 
   const toggleProvider = (id: number) => {
@@ -182,9 +183,9 @@ export default function ProfileScreen() {
     setSavingProviders(true);
     try {
       await updateUserProfile(user.uid, { streamingServices: selectedProviders } as any);
-      Alert.alert('Saved', 'Your streaming services have been updated.');
+      Alert.alert(t.saved, t.streamingUpdated);
     } catch {
-      Alert.alert('Error', 'Failed to save. Try again.');
+      Alert.alert(t.error, t.failedToSave);
     } finally {
       setSavingProviders(false);
     }
@@ -231,9 +232,9 @@ export default function ProfileScreen() {
   const [showGenreDrop, setShowGenreDrop] = useState(false);
 
   const SORT_OPTIONS: { value: Sort; label: string; icon: string }[] = [
-    { value: 'date', label: 'Recent', icon: 'time-outline' },
-    { value: 'rating', label: 'Rating', icon: 'star-outline' },
-    { value: 'title', label: 'A-Z', icon: 'text-outline' },
+    { value: 'date', label: t.recent, icon: 'time-outline' },
+    { value: 'rating', label: t.rating, icon: 'star-outline' },
+    { value: 'title', label: t.title, icon: 'text-outline' },
   ];
 
   const renderFilterBar = (opts: {
@@ -252,7 +253,7 @@ export default function ProfileScreen() {
         <View style={s.filterActions}>
           <View style={{ position: 'relative', zIndex: 99 }}>
             <TouchableOpacity style={s.sortBtn} onPress={() => { setShowSortDrop(!showSortDrop); setShowGenreDrop(false); }}>
-              <Text style={s.sortLabel}>Sort by</Text>
+              <Text style={s.sortLabel}>{t.sortBy}</Text>
               <Ionicons name={SORT_OPTIONS.find(o => o.value === opts.sort)!.icon as any} size={14} color={colors.red} />
               <Text style={s.sortText}>{SORT_OPTIONS.find(o => o.value === opts.sort)!.label}</Text>
               <Ionicons name="chevron-down" size={12} color={colors.subtle} />
@@ -280,7 +281,7 @@ export default function ProfileScreen() {
                 <View style={s.genreDropdown}>
                   <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator nestedScrollEnabled>
                     <TouchableOpacity style={[s.sortDropItem, opts.genre === 'all' && s.sortDropItemActive]} onPress={() => { opts.setGenre('all'); setShowGenreDrop(false); }}>
-                      <Text style={[s.sortDropText, opts.genre === 'all' && { color: colors.red }]}>All Genres</Text>
+                      <Text style={[s.sortDropText, opts.genre === 'all' && { color: colors.red }]}>{t.allGenres}</Text>
                       {opts.genre === 'all' && <Ionicons name="checkmark" size={14} color={colors.red} style={{ marginLeft: 'auto' }} />}
                     </TouchableOpacity>
                     {opts.genres.map(g => (
@@ -300,7 +301,7 @@ export default function ProfileScreen() {
           </View>
         </View>
       </View>
-      <Text style={s.countText}>{opts.count} film{opts.count !== 1 ? 's' : ''}</Text>
+      <Text style={s.countText}>{opts.count} {opts.count !== 1 ? t.films : t.film}</Text>
     </>
   );
 
@@ -319,7 +320,7 @@ export default function ProfileScreen() {
     if (!paged.length) return (
       <View style={s.empty}>
         <Ionicons name={tab === 'watchlist' ? 'bookmark-outline' : tab === 'favorites' ? 'heart-outline' : 'eye-outline'} size={40} color="rgba(255,255,255,0.1)" />
-        <Text style={s.emptyText}>{tab === 'watched' ? (activeSearch || activeGenre !== 'all' ? 'No movies match your filters.' : 'No movies watched yet.') : tab === 'watchlist' ? (activeSearch || activeGenre !== 'all' ? 'No movies match your filters.' : 'Your watchlist is empty.') : (activeSearch || activeGenre !== 'all' ? 'No movies match your filters.' : 'No favorites yet.')}</Text>
+        <Text style={s.emptyText}>{tab === 'watched' ? (activeSearch || activeGenre !== 'all' ? t.noMatchFilters : t.noMoviesWatched) : tab === 'watchlist' ? (activeSearch || activeGenre !== 'all' ? t.noMatchFilters : t.watchlistEmpty) : (activeSearch || activeGenre !== 'all' ? t.noMatchFilters : t.noFavorites)}</Text>
       </View>
     );
     const totalPages = getTotalPages(movies);
@@ -352,10 +353,10 @@ export default function ProfileScreen() {
         {/* Top buttons */}
         <View style={s.topBar}>
           <TouchableOpacity style={s.editBtn} onPress={() => setEditVisible(true)}>
-            <Ionicons name="create-outline" size={15} color={colors.red} /><Text style={s.editBtnText}>Edit Profile</Text>
+            <Ionicons name="create-outline" size={15} color={colors.red} /><Text style={s.editBtnText}>{t.editProfile}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={s.signOutBtn} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={15} color={colors.muted} /><Text style={s.signOutText}>Sign Out</Text>
+            <Ionicons name="log-out-outline" size={15} color={colors.muted} /><Text style={s.signOutText}>{t.signOut}</Text>
           </TouchableOpacity>
         </View>
 
@@ -381,18 +382,18 @@ export default function ProfileScreen() {
                 <Text style={s.tierDesc}>
                   {searchCount} search{searchCount !== 1 ? 'es' : ''}
                   {getNextTier(getTier(searchCount)).next
-                    ? ` · ${getNextTier(getTier(searchCount)).needed - searchCount} more to ${TIER_META[getNextTier(getTier(searchCount)).next!].label}`
-                    : ' · Max level reached 🏆'}
+                    ? ` · ${getNextTier(getTier(searchCount)).needed - searchCount} ${t.moreSearchesTo} ${TIER_META[getNextTier(getTier(searchCount)).next!].label}`
+                    : ` · ${t.maxLevelReached}`}
                 </Text>
               </View>
             </View>
             {/* Stat cards */}
             <View style={s.statsRow}>
-              <View style={s.statCard}><Ionicons name="eye-outline" size={16} color={colors.red} /><Text style={s.statNum}>{watched.length}</Text><Text style={s.statLabel} numberOfLines={1}>Watched</Text></View>
-              <View style={s.statCard}><Ionicons name="bookmark-outline" size={16} color={colors.gold} /><Text style={s.statNum}>{toWatch.length}</Text><Text style={s.statLabel} numberOfLines={1}>Watchlist</Text></View>
-              <View style={s.statCard}><Ionicons name="heart-outline" size={16} color="#ff6b6b" /><Text style={s.statNum}>{favs.length}</Text><Text style={s.statLabel} numberOfLines={1}>Favorites</Text></View>
-              <View style={s.statCard}><Ionicons name="people-outline" size={16} color="#4ade80" /><Text style={s.statNum}>{friendsCount}</Text><Text style={s.statLabel} numberOfLines={1}>Friends</Text></View>
-              <View style={s.statCard}><Ionicons name="star-outline" size={16} color={colors.gold} /><Text style={s.statNum}>{avgRating}</Text><Text style={s.statLabel} numberOfLines={1}>Avg</Text></View>
+              <View style={s.statCard}><Ionicons name="eye-outline" size={16} color={colors.red} /><Text style={s.statNum}>{watched.length}</Text><Text style={s.statLabel} numberOfLines={1}>{t.watched}</Text></View>
+              <View style={s.statCard}><Ionicons name="bookmark-outline" size={16} color={colors.gold} /><Text style={s.statNum}>{toWatch.length}</Text><Text style={s.statLabel} numberOfLines={1}>{t.watchlist}</Text></View>
+              <View style={s.statCard}><Ionicons name="heart-outline" size={16} color="#ff6b6b" /><Text style={s.statNum}>{favs.length}</Text><Text style={s.statLabel} numberOfLines={1}>{t.favs}</Text></View>
+              <View style={s.statCard}><Ionicons name="people-outline" size={16} color="#4ade80" /><Text style={s.statNum}>{friendsCount}</Text><Text style={s.statLabel} numberOfLines={1}>{t.friends}</Text></View>
+              <View style={s.statCard}><Ionicons name="star-outline" size={16} color={colors.gold} /><Text style={s.statNum}>{avgRating}</Text><Text style={s.statLabel} numberOfLines={1}>{t.avg}</Text></View>
             </View>
           </View>
         </View>
@@ -414,19 +415,19 @@ export default function ProfileScreen() {
         <View style={s.content}>
           {tab === 'watched' && (
             <>
-              {renderFilterBar({ search, setSearch: (v) => { setSearch(v); setPage(p => ({ ...p, watched: 1 })); }, sort, setSort: (v) => { setSort(v); setPage(p => ({ ...p, watched: 1 })); }, genre, setGenre: (v) => { setGenre(v); setPage(p => ({ ...p, watched: 1 })); }, viewMode, setViewMode, genres, count: filtered.length, placeholder: 'Search watched…' })}
+              {renderFilterBar({ search, setSearch: (v) => { setSearch(v); setPage(p => ({ ...p, watched: 1 })); }, sort, setSort: (v) => { setSort(v); setPage(p => ({ ...p, watched: 1 })); }, genre, setGenre: (v) => { setGenre(v); setPage(p => ({ ...p, watched: 1 })); }, viewMode, setViewMode, genres, count: filtered.length, placeholder: t.searchWatched })}
               {renderMovieList(filtered)}
             </>
           )}
           {tab === 'watchlist' && (
             <>
-              {renderFilterBar({ search: wlSearch, setSearch: (v) => { setWlSearch(v); setPage(p => ({ ...p, watchlist: 1 })); }, sort: wlSort, setSort: (v) => { setWlSort(v); setPage(p => ({ ...p, watchlist: 1 })); }, genre: wlGenre, setGenre: (v) => { setWlGenre(v); setPage(p => ({ ...p, watchlist: 1 })); }, viewMode: wlViewMode, setViewMode: setWlViewMode, genres: wlGenres, count: filteredWl.length, placeholder: 'Search watchlist…' })}
+              {renderFilterBar({ search: wlSearch, setSearch: (v) => { setWlSearch(v); setPage(p => ({ ...p, watchlist: 1 })); }, sort: wlSort, setSort: (v) => { setWlSort(v); setPage(p => ({ ...p, watchlist: 1 })); }, genre: wlGenre, setGenre: (v) => { setWlGenre(v); setPage(p => ({ ...p, watchlist: 1 })); }, viewMode: wlViewMode, setViewMode: setWlViewMode, genres: wlGenres, count: filteredWl.length, placeholder: t.searchWatchlist })}
               {renderMovieList(filteredWl)}
             </>
           )}
           {tab === 'favorites' && (
             <>
-              {renderFilterBar({ search: favSearch, setSearch: (v) => { setFavSearch(v); setPage(p => ({ ...p, favorites: 1 })); }, sort: favSort, setSort: (v) => { setFavSort(v); setPage(p => ({ ...p, favorites: 1 })); }, genre: favGenre, setGenre: (v) => { setFavGenre(v); setPage(p => ({ ...p, favorites: 1 })); }, viewMode: favViewMode, setViewMode: setFavViewMode, genres: favGenres, count: filteredFav.length, placeholder: 'Search favorites…' })}
+              {renderFilterBar({ search: favSearch, setSearch: (v) => { setFavSearch(v); setPage(p => ({ ...p, favorites: 1 })); }, sort: favSort, setSort: (v) => { setFavSort(v); setPage(p => ({ ...p, favorites: 1 })); }, genre: favGenre, setGenre: (v) => { setFavGenre(v); setPage(p => ({ ...p, favorites: 1 })); }, viewMode: favViewMode, setViewMode: setFavViewMode, genres: favGenres, count: filteredFav.length, placeholder: t.searchFavorites })}
               {renderMovieList(filteredFav)}
             </>
           )}
@@ -479,18 +480,18 @@ export default function ProfileScreen() {
                   <View style={ps.lockCircle}>
                     <Ionicons name="lock-closed" size={22} color={colors.red} />
                   </View>
-                  <Text style={ps.overlayTitle}>{'Unlock Your Viewing\nInsights'}</Text>
-                  <Text style={ps.overlaySub}>Your stats are ready. See your genres, ratings, and activity — upgrade to Premium.</Text>
+                  <Text style={ps.overlayTitle}>{t.unlockViewingInsights}</Text>
+                  <Text style={ps.overlaySub}>{t.statsReady}</Text>
                   <TouchableOpacity style={ps.unlockBtn} onPress={buy} disabled={purchaseLoading} activeOpacity={0.85}>
                     <LinearGradient colors={['#c0392b', '#e74c3c']} style={ps.unlockGradient}>
                       {purchaseLoading ? <ActivityIndicator color="#fff" size="small" /> : <><Text style={ps.unlockStar}>✦</Text><Text style={ps.unlockText}>Unlock with Premium</Text></>}
                     </LinearGradient>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={restore} disabled={purchaseLoading}>
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 4 }}>Restore purchase</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 4 }}>{t.restorePurchase}</Text>
                   </TouchableOpacity>
                   <View style={ps.perks}>
-                    {['Detailed genre breakdown', 'Personal rating analytics', 'Full activity overview'].map((perk, i) => (
+                    {[t.detailedGenre, t.personalRating, t.fullActivity].map((perk, i) => (
                       <View key={i} style={ps.perkRow}>
                         <View style={ps.perkDot} />
                         <Text style={ps.perkText}>{perk}</Text>
@@ -533,18 +534,18 @@ export default function ProfileScreen() {
                   <View style={ps.lockCircle}>
                     <Ionicons name="lock-closed" size={22} color={colors.red} />
                   </View>
-                  <Text style={ps.overlayTitle}>{'Filter by Your\nStreaming Services'}</Text>
-                  <Text style={ps.overlaySub}>Select your platforms and only see content available to you.</Text>
+                  <Text style={ps.overlayTitle}>{t.filterByStreaming}</Text>
+                  <Text style={ps.overlaySub}>{t.selectPlatforms}</Text>
                   <TouchableOpacity style={ps.unlockBtn} onPress={buy} disabled={purchaseLoading} activeOpacity={0.85}>
                     <LinearGradient colors={['#c0392b', '#e74c3c']} style={ps.unlockGradient}>
                       {purchaseLoading ? <ActivityIndicator color="#fff" size="small" /> : <><Text style={ps.unlockStar}>✦</Text><Text style={ps.unlockText}>Unlock with Premium</Text></>}
                     </LinearGradient>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={restore} disabled={purchaseLoading}>
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 4 }}>Restore purchase</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 4 }}>{t.restorePurchase}</Text>
                   </TouchableOpacity>
                   <View style={ps.perks}>
-                    {['Filter recommendations by platform', 'Region-aware availability', 'Works across all searches'].map((perk, i) => (
+                    {[t.filterByPlatform, t.regionAware, t.worksAcrossSearches].map((perk, i) => (
                       <View key={i} style={ps.perkRow}>
                         <View style={ps.perkDot} />
                         <Text style={ps.perkText}>{perk}</Text>
@@ -558,8 +559,8 @@ export default function ProfileScreen() {
           {tab === 'services' && isPremium && (
             <View style={{ gap: 16 }}>
               <View style={s.card}>
-                <View style={s.cardHeader}><Ionicons name="tv-outline" size={15} color={colors.red} /><Text style={s.cardTitle}>Your Streaming Services</Text></View>
-                <Text style={{ color: colors.subtle, fontSize: 12, marginBottom: 14 }}>Select the platforms you have access to. This filters recommendations and search results.</Text>
+                <View style={s.cardHeader}><Ionicons name="tv-outline" size={15} color={colors.red} /><Text style={s.cardTitle}>{t.yourStreamingServices}</Text></View>
+                <Text style={{ color: colors.subtle, fontSize: 12, marginBottom: 14 }}>{t.streamingServicesSub}</Text>
                 {providersLoading ? (
                   <View style={{ alignItems: 'center', paddingVertical: 24 }}>
                     <ActivityIndicator color={colors.red} />
@@ -584,7 +585,7 @@ export default function ProfileScreen() {
                 <TouchableOpacity style={s.saveBtn} onPress={saveProviders} disabled={savingProviders} activeOpacity={0.85}>
                   <LinearGradient colors={['#c0392b', '#e74c3c']} style={s.saveGradient}>
                     {savingProviders ? <ActivityIndicator color={colors.white} size="small" /> : (
-                      <><Ionicons name="checkmark-circle" size={16} color={colors.white} /><Text style={s.saveText}>Save ({selectedProviders.length} selected)</Text></>
+                      <><Ionicons name="checkmark-circle" size={16} color={colors.white} /><Text style={s.saveText}>{t.save} ({selectedProviders.length} {t.selected})</Text></>
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
@@ -615,7 +616,7 @@ export default function ProfileScreen() {
                     </View>
                   </TouchableOpacity>
                   <Text style={{ color: colors.subtle, fontSize: 12 }}>
-                    {next ? `${needed - searchCount} more searches to ${TIER_META[next].label}` : 'Max level reached 🏆'}
+                    {next ? `${needed - searchCount} ${t.moreSearchesTo} ${TIER_META[next].label}` : t.maxLevelReached}
                   </Text>
                   <View style={{ width: '100%', height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 99, overflow: 'hidden' }}>
                     <View style={{ height: '100%', width: `${Math.min(progress * 100, 100)}%`, backgroundColor: tierMeta.color, borderRadius: 99 }} />
@@ -625,7 +626,7 @@ export default function ProfileScreen() {
               {/* Top genres grouped bar chart */}
               {topGenresByList.length > 0 && (
                 <View style={s.card}>
-                  <View style={s.cardHeader}><Ionicons name="bar-chart-outline" size={15} color={colors.red} /><Text style={s.cardTitle}>Top Genres</Text></View>
+                  <View style={s.cardHeader}><Ionicons name="bar-chart-outline" size={15} color={colors.red} /><Text style={s.cardTitle}>{t.topGenres}</Text></View>
                   {/* Legend */}
                   <View style={{ flexDirection: 'row', gap: 14, marginBottom: 14 }}>
                     {([['Watched', colors.red], ['Watchlist', colors.gold], ['Favorites', '#ff6b6b']] as const).map(([l, c]) => (
@@ -655,12 +656,12 @@ export default function ProfileScreen() {
               )}
               {/* Activity overview */}
               <View style={s.card}>
-                <View style={s.cardHeader}><Ionicons name="trending-up-outline" size={15} color={colors.red} /><Text style={s.cardTitle}>Activity Overview</Text></View>
+                <View style={s.cardHeader}><Ionicons name="trending-up-outline" size={15} color={colors.red} /><Text style={s.cardTitle}>{t.activityOverview}</Text></View>
                 {[
-                  { label: 'Movies Watched', value: watched.length, icon: 'eye-outline', color: colors.red },
-                  { label: 'In Watchlist', value: toWatch.length, icon: 'bookmark-outline', color: colors.gold },
-                  { label: 'Marked Favorite', value: favs.length, icon: 'heart-outline', color: '#ff6b6b' },
-                  { label: 'Rated', value: watched.filter(m => m.rating && m.rating > 0).length, icon: 'star-outline', color: '#a78bfa' },
+                  { label: t.moviesWatched, value: watched.length, icon: 'eye-outline', color: colors.red },
+                  { label: t.inWatchlist, value: toWatch.length, icon: 'bookmark-outline', color: colors.gold },
+                  { label: t.markedFavorite, value: favs.length, icon: 'heart-outline', color: '#ff6b6b' },
+                  { label: t.rated, value: watched.filter(m => m.rating && m.rating > 0).length, icon: 'star-outline', color: '#a78bfa' },
                 ].map(item => (
                   <View key={item.label} style={s.actRow}>
                     <Ionicons name={item.icon as any} size={14} color={item.color} />
@@ -671,7 +672,7 @@ export default function ProfileScreen() {
                 {avgRating !== '—' && (
                   <View style={s.actDivider}>
                     <Ionicons name="star" size={14} color={colors.gold} />
-                    <Text style={s.actLabel}>Average Rating</Text>
+                    <Text style={s.actLabel}>{t.averageRating}</Text>
                     <Text style={[s.actValue, { color: colors.gold }]}>{avgRating}/10</Text>
                   </View>
                 )}
@@ -696,12 +697,12 @@ export default function ProfileScreen() {
         <TouchableOpacity style={s.tierOverlay} activeOpacity={1} onPress={() => setShowTierInfo(false)}>
           <View style={s.tierModal}>
             <View style={s.tierModalHeader}>
-              <Text style={s.tierModalTitle}>Tier Levels</Text>
+              <Text style={s.tierModalTitle}>{t.tierLevels}</Text>
               <TouchableOpacity onPress={() => setShowTierInfo(false)}>
                 <Ionicons name="close" size={20} color={colors.muted} />
               </TouchableOpacity>
             </View>
-            <Text style={s.tierModalSub}>Earn tiers by searching with AI</Text>
+            <Text style={s.tierModalSub}>{t.earnTiers}</Text>
             {(['spectator', 'cinephile', 'critic', 'director'] as Tier[]).map((t) => {
               const meta = TIER_META[t];
               const current = getTier(searchCount) === t;
@@ -717,7 +718,7 @@ export default function ProfileScreen() {
                       <Text style={[s.tierInfoName, { color: meta.color }]}>{meta.label}</Text>
                       {current && <View style={[s.tierInfoBadge, { backgroundColor: meta.color }]}><Text style={s.tierInfoBadgeText}>YOU</Text></View>}
                     </View>
-                    <Text style={s.tierInfoReq}>{meta.min === 0 ? 'Starting tier' : `${meta.min}+ AI searches`}</Text>
+                    <Text style={s.tierInfoReq}>{meta.min === 0 ? t.startingTier : `${meta.min}+ ${t.aiSearches}`}</Text>
                   </View>
                 </View>
               );

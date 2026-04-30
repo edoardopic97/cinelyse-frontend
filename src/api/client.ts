@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { auth } from '../lib/firebase';
 import { API_BASE_URL } from '@env';
+import { lang } from '../i18n';
 
 const API_BASE = API_BASE_URL || 'https://backend-eta-ochre-46.vercel.app';
 
@@ -22,6 +23,7 @@ const api = axios.create({
 api.interceptors.request.use(async (config) => {
   const headers = await getAuthHeaders();
   Object.assign(config.headers, headers);
+  config.params = { ...config.params, lang };
   return config;
 });
 
@@ -120,7 +122,7 @@ export async function fetchTrending(): Promise<{ movies: MovieResult[]; tv: Movi
 }
 
 export async function fetchRecommended(favorites: { tmdbID: number; type: string }[], excludeIds?: number[]): Promise<{ movies: MovieResult[]; tv: MovieResult[] }> {
-  const res = await api.post('/api/movie/recommended', { favorites, excludeIds });
+  const res = await api.post('/api/movie/recommended', { favorites, excludeIds, lang });
   return res.data;
 }
 

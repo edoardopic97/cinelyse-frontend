@@ -672,7 +672,7 @@ export default function DiscoverScreen() {
                   <View style={{ marginBottom: 20 }}>
                     <View style={s.trendingHeader}>
                       <Ionicons name="sparkles" size={16} color={colors.red} />
-                      <Text style={s.trendingTitle}>Movies You Might Like</Text>
+                      <Text style={s.trendingTitle}>{t.moviesYouMightLike}</Text>
                     </View>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 22 }}>
                       {recMovies.map((m, i) => (
@@ -684,7 +684,7 @@ export default function DiscoverScreen() {
                 <View style={{ marginBottom: 20 }}>
                   <View style={s.trendingHeader}>
                     <Ionicons name="sparkles" size={16} color={colors.red} />
-                    <Text style={s.trendingTitle}>TV Shows You Might Like</Text>
+                    <Text style={s.trendingTitle}>{t.tvYouMightLike}</Text>
                   </View>
                   {recTV.length > 0 ? (
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 22 }}>
@@ -695,7 +695,7 @@ export default function DiscoverScreen() {
                   ) : (
                     <View style={s.recEmptyInline}>
                       <Ionicons name="tv-outline" size={20} color="rgba(255,255,255,0.15)" />
-                      <Text style={s.recEmptyInlineText}>Start adding TV series to favorites to build your taste</Text>
+                      <Text style={s.recEmptyInlineText}>{t.addTvToFavorites}</Text>
                     </View>
                   )}
                 </View>
@@ -709,7 +709,7 @@ export default function DiscoverScreen() {
                 <View style={{ marginBottom: 20 }}>
                   <View style={s.trendingHeader}>
                     <Ionicons name="flame" size={16} color={colors.red} />
-                    <Text style={s.trendingTitle}>Trending Movies Today</Text>
+                    <Text style={s.trendingTitle}>{t.trendingMovies}</Text>
                   </View>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 22 }}>
                     {trendingMovies.map((m, i) => (
@@ -722,7 +722,7 @@ export default function DiscoverScreen() {
                 <View>
                   <View style={s.trendingHeader}>
                     <Ionicons name="flame" size={16} color={colors.red} />
-                    <Text style={s.trendingTitle}>Trending TV Today</Text>
+                    <Text style={s.trendingTitle}>{t.trendingTV}</Text>
                   </View>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 22 }}>
                     {trendingTV.map((m, i) => (
@@ -869,9 +869,9 @@ export default function DiscoverScreen() {
       </View>
 
       <View style={[s.filterRow, { paddingHorizontal: 16, marginBottom: 12 }]}>
-        <FilterPill label="All" value="all" />
-        <FilterPill label="Movies" value="movie" />
-        <FilterPill label="TV Series" value="tv" />
+        <FilterPill label={t.all} value="all" />
+        <FilterPill label={t.movies} value="movie" />
+        <FilterPill label={t.tvSeries} value="tv" />
         <RatingDropdown />
         <ProviderDropdown />
         <Text style={s.resultCount}>{filteredResults.length} result{filteredResults.length !== 1 ? 's' : ''}</Text>
