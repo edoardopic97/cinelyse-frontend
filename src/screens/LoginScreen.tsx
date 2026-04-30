@@ -7,13 +7,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, updateProfile, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, updateProfile, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { auth } from '../lib/firebase';
 import { setUserProfile, checkUsernameExists, getUserProfile } from '../lib/firestore';
 import { registerForPushNotifications } from '../lib/notifications';
 import { colors } from '../theme/colors';
 import { getFriendlyError } from '../utils/errorMessages';
+import t from '../i18n';
 
 GoogleSignin.configure({
   webClientId: '226486672662-7hl37cks66rl2o37cv1cja6uveg4sl5m.apps.googleusercontent.com',
@@ -30,6 +31,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [splashDone, setSplashDone] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const [googleLoading, setGoogleLoading] = useState(false);
   const [marketingOptIn, setMarketingOptIn] = useState(false);
@@ -52,15 +54,15 @@ export default function LoginScreen() {
 
   const getErrorMessage = (error: any): string => {
     const code = error.code || '';
-    if (code.includes('email-already-in-use')) return 'This email is already registered';
-    if (code.includes('invalid-email')) return 'Please enter a valid email address';
-    if (code.includes('weak-password')) return 'Password must be at least 6 characters';
-    if (code.includes('user-not-found')) return 'No account found with this email';
-    if (code.includes('wrong-password')) return 'Incorrect password';
-    if (code.includes('invalid-credential')) return 'Invalid email or password';
-    if (code.includes('too-many-requests')) return 'Too many attempts. Please try again later';
-    if (code.includes('network-request-failed')) return 'Network error. Check your connection';
-    return 'Something went wrong. Please try again';
+    if (code.includes('email-already-in-use')) return t.emailAlreadyInUse;
+    if (code.includes('invalid-email')) return t.invalidEmail;
+    if (code.includes('weak-password')) return t.weakPassword;
+    if (code.includes('user-not-found')) return t.userNotFound;
+    if (code.includes('wrong-password')) return t.wrongPassword;
+    if (code.includes('invalid-credential')) return t.invalidCredential;
+    if (code.includes('too-many-requests')) return t.tooManyRequests;
+    if (code.includes('network-request-failed')) return t.networkError;
+    return t.somethingWentWrong;
   };
 
   const handleGoogleSignIn = async () => {
@@ -86,41 +88,57 @@ export default function LoginScreen() {
       registerForPushNotifications(cred.user.uid).catch(() => {});
     } catch (err: any) {
       if (err.code !== 'SIGN_IN_CANCELLED') {
-        Alert.alert('Error', getFriendlyError(err, 'Google sign-in failed. Please try again.'));
+        Alert.alert(t.error, getFriendlyError(err, t.googleSignInFailed));
       }
     } finally {
       setGoogleLoading(false);
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      Alert.alert(t.error, t.enterEmailToReset);
+      return;
+    }
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      Alert.alert(t.resetEmailSent, t.resetEmailSentBody);
+    } catch (err: any) {
+      Alert.alert(t.error, getErrorMessage(err));
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   const handleAuth = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please enter email and password');
+      Alert.alert(t.error, t.enterEmailAndPassword);
       return;
     }
     setLoading(true);
     try {
       if (isSignUp) {
-        if (!username.trim()) { Alert.alert('Error', 'Username is required'); setLoading(false); return; }
-        if (username.includes(' ')) { Alert.alert('Error', 'Username cannot contain spaces'); setLoading(false); return; }
-        if (password !== confirmPassword) { Alert.alert('Error', 'Passwords do not match'); setLoading(false); return; }
+        if (!username.trim()) { Alert.alert(t.error, t.usernameRequired); setLoading(false); return; }
+        if (username.includes(' ')) { Alert.alert(t.error, t.usernameNoSpaces); setLoading(false); return; }
+        if (password !== confirmPassword) { Alert.alert(t.error, t.passwordsNoMatch); setLoading(false); return; }
         const exists = await checkUsernameExists(username);
-        if (exists) { Alert.alert('Error', 'Username already taken'); setLoading(false); return; }
+        if (exists) { Alert.alert(t.error, t.usernameTaken); setLoading(false); return; }
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
         await updateProfile(cred.user, { displayName: username.trim() });
         await setUserProfile(cred.user.uid, { email: email.trim(), displayName: username.trim(), marketingOptIn });
         await sendEmailVerification(cred.user);
         registerForPushNotifications(cred.user.uid).catch(() => {});
-        Alert.alert('Check your email 📧', 'We sent a verification link to your email. Please verify to continue. Check your spam or junk folder if you don\'t see it.');
+        Alert.alert(t.checkEmail, t.checkEmailBody);
       } else {
         const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
         registerForPushNotifications(cred.user.uid).catch(() => {});
         if (!cred.user.emailVerified) {
-          Alert.alert('Verify your email', 'Please check your inbox (and spam/junk folder) for the verification link we sent when you signed up.');
+          Alert.alert(t.verifyEmail, t.verifyEmailBody);
         }
       }
     } catch (err: any) {
-      Alert.alert('Error', getErrorMessage(err));
+      Alert.alert(t.error, getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -132,7 +150,7 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
         <Animated.View style={{ opacity: logoOpacity, transform: [{ scale: logoScale }] }}>
           <Text style={s.logo}>CINE<Text style={s.logoAccent}>LYSE</Text></Text>
-          <Text style={s.tagline}>Your AI-powered movie companion</Text>
+          <Text style={s.tagline}>{t.tagline}</Text>
         </Animated.View>
 
         <Animated.View style={{ opacity: contentOpacity, width: '100%' }}>
@@ -141,15 +159,15 @@ export default function LoginScreen() {
 
           {isSignUp && (
             <View style={s.fieldWrap}>
-              <Text style={s.label}>USERNAME</Text>
+              <Text style={s.label}>{t.username}</Text>
               <View style={s.inputWrap}>
                 <Ionicons name="person-outline" size={16} color={colors.subtle} style={s.inputIcon} />
                 <TextInput
                   style={s.input}
-                  placeholder="Choose a username"
+                  placeholder={t.chooseUsername}
                   placeholderTextColor={colors.subtle}
                   value={username}
-                  onChangeText={(t) => setUsername(t.replace(/\s/g, ''))}
+                  onChangeText={(v) => setUsername(v.replace(/\s/g, ''))}
                   autoCapitalize="none"
                 />
               </View>
@@ -157,12 +175,12 @@ export default function LoginScreen() {
           )}
 
           <View style={s.fieldWrap}>
-            <Text style={s.label}>EMAIL</Text>
+            <Text style={s.label}>{t.email}</Text>
             <View style={s.inputWrap}>
               <Ionicons name="mail-outline" size={16} color={colors.subtle} style={s.inputIcon} />
               <TextInput
                 style={s.input}
-                placeholder="your@email.com"
+                placeholder={t.emailPlaceholder}
                 placeholderTextColor={colors.subtle}
                 value={email}
                 onChangeText={setEmail}
@@ -173,7 +191,7 @@ export default function LoginScreen() {
           </View>
 
           <View style={s.fieldWrap}>
-            <Text style={s.label}>PASSWORD</Text>
+            <Text style={s.label}>{t.password}</Text>
             <View style={s.inputWrap}>
               <Ionicons name="lock-closed-outline" size={16} color={colors.subtle} style={s.inputIcon} />
               <TextInput
@@ -192,7 +210,7 @@ export default function LoginScreen() {
 
           {isSignUp && (
             <View style={s.fieldWrap}>
-              <Text style={s.label}>CONFIRM PASSWORD</Text>
+              <Text style={s.label}>{t.confirmPassword}</Text>
               <View style={s.inputWrap}>
                 <Ionicons name="lock-closed-outline" size={16} color={colors.subtle} style={s.inputIcon} />
                 <TextInput
@@ -207,12 +225,18 @@ export default function LoginScreen() {
             </View>
           )}
 
+          {!isSignUp && (
+            <TouchableOpacity onPress={handleForgotPassword} disabled={resetLoading} style={s.forgotBtn}>
+              <Text style={s.forgotText}>{resetLoading ? t.loading : t.forgotPassword}</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity style={s.btn} onPress={handleAuth} disabled={loading} activeOpacity={0.8}>
             {loading ? (
               <ActivityIndicator color={colors.white} />
             ) : (
               <View style={s.btnInner}>
-                <Text style={s.btnText}>{isSignUp ? 'Create Account' : 'Sign In'}</Text>
+                <Text style={s.btnText}>{isSignUp ? t.createAccount : t.signIn}</Text>
                 <Ionicons name="arrow-forward" size={18} color={colors.white} />
               </View>
             )}
@@ -222,19 +246,19 @@ export default function LoginScreen() {
             <View style={[s.checkbox, marketingOptIn && s.checkboxActive]}>
               {marketingOptIn && <Ionicons name="checkmark" size={14} color={colors.white} />}
             </View>
-            <Text style={s.checkboxText}>I'd like to receive updates, tips and offers from CINELYSE</Text>
+            <Text style={s.checkboxText}>{t.marketingOptIn}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => { setIsSignUp(!isSignUp); setConfirmPassword(''); }} style={s.toggle}>
             <Text style={s.toggleText}>
-              {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-              <Text style={s.toggleAccent}>{isSignUp ? 'Sign in' : 'Sign up free'}</Text>
+              {isSignUp ? t.alreadyHaveAccount : t.dontHaveAccount}
+              <Text style={s.toggleAccent}>{isSignUp ? t.signInLink : t.signUpFree}</Text>
             </Text>
           </TouchableOpacity>
 
           <View style={s.divider}>
             <View style={s.dividerLine} />
-            <Text style={s.dividerText}>OR</Text>
+            <Text style={s.dividerText}>{t.or}</Text>
             <View style={s.dividerLine} />
           </View>
 
@@ -244,7 +268,7 @@ export default function LoginScreen() {
             ) : (
               <View style={s.btnInner}>
                 <Ionicons name="logo-google" size={18} color={colors.white} />
-                <Text style={s.googleBtnText}>Continue with Google</Text>
+                <Text style={s.googleBtnText}>{t.continueWithGoogle}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -292,4 +316,6 @@ const s = StyleSheet.create({
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   checkboxActive: { backgroundColor: colors.red, borderColor: colors.red },
   checkboxText: { color: colors.subtle, fontSize: 12, lineHeight: 18, flex: 1 },
+  forgotBtn: { alignSelf: 'flex-end', marginTop: 4 },
+  forgotText: { color: colors.red, fontSize: 13, fontWeight: '600' },
 });

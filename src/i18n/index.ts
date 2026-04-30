@@ -1,8 +1,10 @@
 import { getLocales } from 'expo-localization';
 import en from './en';
 import it from './it';
+import es from './es';
+import hi from './hi';
 
-const translations: Record<string, typeof en> = { en, it };
+const translations: Record<string, typeof en> = { en, it, es, hi };
 
 function getDeviceLanguage(): string {
   try {
@@ -19,9 +21,6 @@ function getDeviceLanguage(): string {
 
 const lang = getDeviceLanguage();
 const t = translations[lang] ?? en;
-
-import { Alert } from 'react-native';
-setTimeout(() => Alert.alert('Lang', `code: "${lang}"`), 2000);
 
 export default t;
 export { lang };

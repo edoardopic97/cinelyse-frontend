@@ -6,6 +6,7 @@ import { sendEmailVerification, signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { colors } from '../theme/colors';
+import t from '../i18n';
 
 export default function VerifyEmailScreen() {
   const { refreshUser } = useAuth();
@@ -20,9 +21,9 @@ export default function VerifyEmailScreen() {
     setSending(true);
     try {
       await sendEmailVerification(auth.currentUser);
-      Alert.alert('Sent!', 'Verification email sent. Check your inbox.');
+      Alert.alert(t.sent, t.verificationSent);
     } catch (err: any) {
-      Alert.alert('Error', err.code?.includes('too-many-requests') ? 'Too many attempts. Try again later.' : 'Failed to send email.');
+      Alert.alert(t.error, err.code?.includes('too-many-requests') ? t.tooManyAttempts : t.failedToSend);
     } finally { setSending(false); }
   };
 
@@ -34,7 +35,7 @@ export default function VerifyEmailScreen() {
       if (auth.currentUser.emailVerified) {
         await refreshUser();
       } else {
-        Alert.alert('Not verified yet', 'Please check your email and click the verification link first.');
+        Alert.alert(t.notVerifiedYet, t.checkEmailFirst);
       }
     } catch {} finally { setChecking(false); }
   };
@@ -47,26 +48,26 @@ export default function VerifyEmailScreen() {
         <View style={s.iconWrap}>
           <Ionicons name="mail-outline" size={48} color={colors.red} />
         </View>
-        <Text style={s.title}>Verify your email</Text>
-        <Text style={s.sub}>We sent a verification link to</Text>
+        <Text style={s.title}>{t.verifyYourEmail}</Text>
+        <Text style={s.sub}>{t.weSentVerification}</Text>
         <Text style={s.email}>{auth.currentUser?.email}</Text>
-        <Text style={s.desc}>Click the link in the email to activate your account. Check your spam folder if you don't see it.</Text>
+        <Text style={s.desc}>{t.clickLinkToActivate}</Text>
 
         <TouchableOpacity style={s.primaryBtn} onPress={handleCheck} disabled={checking}>
           {checking ? <ActivityIndicator color={colors.white} size="small" /> : (
-            <><Ionicons name="refresh" size={16} color={colors.white} /><Text style={s.primaryText}>I've verified — check now</Text></>
+            <><Ionicons name="refresh" size={16} color={colors.white} /><Text style={s.primaryText}>{t.iveVerified}</Text></>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity style={s.secondaryBtn} onPress={handleResend} disabled={sending}>
           {sending ? <ActivityIndicator color={colors.red} size="small" /> : (
-            <><Ionicons name="send-outline" size={14} color={colors.red} /><Text style={s.secondaryText}>Resend email</Text></>
+            <><Ionicons name="send-outline" size={14} color={colors.red} /><Text style={s.secondaryText}>{t.resendEmail}</Text></>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity style={s.signOutBtn} onPress={handleSignOut}>
           <Ionicons name="log-out-outline" size={14} color={colors.muted} />
-          <Text style={s.signOutText}>Sign out</Text>
+          <Text style={s.signOutText}>{t.signOut}</Text>
         </TouchableOpacity>
       </View>
     </View>

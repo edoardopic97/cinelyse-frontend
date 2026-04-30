@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useAuth } from '../contexts/AuthContext';
 import { setUserProfile, updateUserProfile } from '../lib/firestore';
+import t from '../i18n';
 
 const AVATARS = ['🎬','🎥','🎞️','🍿','🎭','🎪','🎨','🎯','🎮','🎲','🎸','🎹','🚀','🌟','⭐','✨','🔥','💫','🦁','🐯','🐻','🐼','🐨','🦊'];
 
@@ -30,7 +31,7 @@ export default function EditProfileModal({ visible, onClose, onSaved }: Props) {
 
   const handleDelete = async () => {
     if (!isGoogle && !deletePassword.trim()) {
-      Alert.alert('Error', 'Please enter your password');
+      Alert.alert(t.error, 'Please enter your password');
       return;
     }
     setDeleting(true);
@@ -38,9 +39,9 @@ export default function EditProfileModal({ visible, onClose, onSaved }: Props) {
       await deleteAccount(isGoogle ? undefined : deletePassword);
     } catch (err: any) {
       const msg = err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential'
-        ? 'Incorrect password. Please try again.'
-        : 'Failed to delete account. Please try again.';
-      Alert.alert('Error', msg);
+        ? t.incorrectPassword
+        : t.failedDeleteAccount;
+      Alert.alert(t.error, msg);
     } finally {
       setDeleting(false);
     }
@@ -62,11 +63,11 @@ export default function EditProfileModal({ visible, onClose, onSaved }: Props) {
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={s.container} edges={['top', 'bottom']}>
         <View style={s.header}>
-          <Text style={s.title}>Edit Profile</Text>
+          <Text style={s.title}>{t.editProfile}</Text>
           <TouchableOpacity onPress={onClose}><Ionicons name="close" size={24} color={colors.muted} /></TouchableOpacity>
         </View>
         <ScrollView contentContainerStyle={s.body}>
-          <Text style={s.label}>AVATAR</Text>
+          <Text style={s.label}>{t.avatar}</Text>
           <View style={s.avatarRow}>
             <View style={s.avatarPreview}>
               {avatar?.startsWith('http')
@@ -75,11 +76,11 @@ export default function EditProfileModal({ visible, onClose, onSaved }: Props) {
             </View>
             <View style={{ gap: 8 }}>
               <TouchableOpacity style={s.changeBtn} onPress={() => { setShowAvatars(!showAvatars); setShowUrlInput(false); }}>
-                <Text style={s.changeBtnText}>{showAvatars ? 'Hide Emojis' : 'Choose Emoji'}</Text>
+                <Text style={s.changeBtnText}>{showAvatars ? t.hideEmojis : t.chooseEmoji}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={s.changeBtn} onPress={() => { setShowUrlInput(!showUrlInput); setShowAvatars(false); }}>
                 <Ionicons name="link-outline" size={14} color={colors.red} />
-                <Text style={s.changeBtnText}>{showUrlInput ? 'Hide' : 'Image URL'}</Text>
+                <Text style={s.changeBtnText}>{showUrlInput ? t.hide : t.imageUrl}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -89,7 +90,7 @@ export default function EditProfileModal({ visible, onClose, onSaved }: Props) {
                 style={s.input}
                 value={imageUrl}
                 onChangeText={setImageUrl}
-                placeholder="Paste image URL (https://...)"
+                placeholder={t.pasteImageUrl}
                 placeholderTextColor={colors.subtle}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -100,7 +101,7 @@ export default function EditProfileModal({ visible, onClose, onSaved }: Props) {
                 disabled={!imageUrl.startsWith('http')}
                 onPress={() => { setAvatar(imageUrl.trim()); setShowUrlInput(false); setImageUrl(''); }}
               >
-                <Text style={s.saveText}>Use This Image</Text>
+                <Text style={s.saveText}>{t.useThisImage}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -113,24 +114,24 @@ export default function EditProfileModal({ visible, onClose, onSaved }: Props) {
               ))}
             </View>
           )}
-          <Text style={s.label}>DISPLAY NAME</Text>
-          <TextInput style={s.input} value={displayName} onChangeText={setDisplayName} placeholder="Enter display name" placeholderTextColor={colors.subtle} />
-          <Text style={s.label}>EMAIL (READ-ONLY)</Text>
+          <Text style={s.label}>{t.displayName}</Text>
+          <TextInput style={s.input} value={displayName} onChangeText={setDisplayName} placeholder={t.enterDisplayName} placeholderTextColor={colors.subtle} />
+          <Text style={s.label}>{t.emailReadOnly}</Text>
           <TextInput style={[s.input, { color: colors.subtle }]} value={user?.email || ''} editable={false} />
           <View style={s.btnRow}>
-            <TouchableOpacity style={s.cancelBtn} onPress={onClose}><Text style={s.cancelText}>Cancel</Text></TouchableOpacity>
+            <TouchableOpacity style={s.cancelBtn} onPress={onClose}><Text style={s.cancelText}>{t.cancel}</Text></TouchableOpacity>
             <TouchableOpacity style={s.saveBtn} onPress={handleSave} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.saveText}>Save Changes</Text>}
+              {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.saveText}>{t.saveChanges}</Text>}
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={s.deleteBtn} onPress={() => {
             Alert.alert(
-              'Delete Account',
-              'This will permanently delete your account and all your data. This cannot be undone.',
+              t.deleteAccount,
+              t.deleteAccountWarning,
               [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Continue', style: 'destructive', onPress: () => {
+                { text: t.cancel, style: 'cancel' },
+                { text: t.continue, style: 'destructive', onPress: () => {
                   if (isGoogle) {
                     handleDelete();
                   } else {
@@ -141,12 +142,12 @@ export default function EditProfileModal({ visible, onClose, onSaved }: Props) {
             );
           }}>
             <Ionicons name="trash-outline" size={16} color="#ff3b30" />
-            <Text style={s.deleteBtnText}>Delete Account</Text>
+            <Text style={s.deleteBtnText}>{t.deleteAccount}</Text>
           </TouchableOpacity>
 
           {showDeleteConfirm && !isGoogle && (
             <View style={s.deleteConfirm}>
-              <Text style={s.deleteConfirmLabel}>Enter your password to confirm</Text>
+              <Text style={s.deleteConfirmLabel}>{t.enterPasswordConfirm}</Text>
               <TextInput
                 style={s.input}
                 value={deletePassword}
@@ -158,10 +159,10 @@ export default function EditProfileModal({ visible, onClose, onSaved }: Props) {
               />
               <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
                 <TouchableOpacity style={[s.cancelBtn, { flex: 1 }]} onPress={() => { setShowDeleteConfirm(false); setDeletePassword(''); }}>
-                  <Text style={s.cancelText}>Cancel</Text>
+                  <Text style={s.cancelText}>{t.cancel}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[s.deleteBtn, { flex: 1, marginTop: 0 }]} onPress={handleDelete} disabled={deleting}>
-                  {deleting ? <ActivityIndicator color="#ff3b30" size="small" /> : <Text style={s.deleteBtnText}>Delete Forever</Text>}
+                  {deleting ? <ActivityIndicator color="#ff3b30" size="small" /> : <Text style={s.deleteBtnText}>{t.deleteForever}</Text>}
                 </TouchableOpacity>
               </View>
             </View>

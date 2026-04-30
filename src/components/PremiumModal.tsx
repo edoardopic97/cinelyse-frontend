@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView, ActivityIndicator,
+  View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView, ActivityIndicator, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -45,7 +45,7 @@ export default function PremiumModal({ visible, onClose, onUpgrade, onRestore, o
             <View style={s.header}>
               <LinearGradient colors={isPremium ? ['rgba(245,197,24,0.2)', 'rgba(245,197,24,0.05)'] : ['rgba(229,9,20,0.2)', 'rgba(229,9,20,0.05)']} style={s.iconGlow}>
                 <View style={[s.iconCircle, isPremium && { backgroundColor: 'rgba(245,197,24,0.15)', borderColor: 'rgba(245,197,24,0.4)' }]}>
-                  <Text style={s.crownEmoji}>{isPremium ? '✦' : '👑'}</Text>
+                  <Text style={s.crownEmoji}>{isPremium ? '👑' : '👑'}</Text>
                 </View>
               </LinearGradient>
 
@@ -115,9 +115,9 @@ export default function PremiumModal({ visible, onClose, onUpgrade, onRestore, o
             {/* CTA */}
             {isPremium ? (
               <>
-                <TouchableOpacity style={s.deactivateBtn} onPress={onDowngrade} activeOpacity={0.85}>
+                <TouchableOpacity style={s.deactivateBtn} onPress={() => Linking.openURL('https://play.google.com/store/account/subscriptions')} activeOpacity={0.85}>
                   <Ionicons name="close-circle-outline" size={16} color={colors.muted} />
-                  <Text style={s.deactivateText}>{t.deactivatePremium}</Text>
+                  <Text style={s.deactivateText}>{t.manageSubscription}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={s.skipBtn} onPress={onClose}>
                   <Text style={s.skipText}>{t.close}</Text>

@@ -256,4 +256,14 @@ export default {
 
   // Sign out
   signOutConfirm: 'Are you sure?',
+
+  // Forgot password
+  forgotPassword: 'Forgot password?',
+  resetPassword: 'Reset Password',
+  resetPasswordSub: 'Enter your email and we\'ll send you a link to reset your password.',
+  sendResetLink: 'Send Reset Link',
+  resetEmailSent: 'Reset email sent',
+  resetEmailSentBody: 'Check your inbox for the password reset link. Check spam if you don\'t see it.',
+  enterEmailToReset: 'Please enter your email address',
+  manageSubscription: 'Manage Subscription',
 } as const;

@@ -13,6 +13,7 @@ import { getFriendlyError } from '../utils/errorMessages';
 import { useAuth } from '../contexts/AuthContext';
 import { useCredits } from '../hooks/useCredits';
 import { useRewardedAd } from '../hooks/useRewardedAd';
+import { useInterstitialAd } from '../hooks/useInterstitialAd';
 import { useSubscription } from '../hooks/useSubscription';
 import { subscribeToSearchCount, acceptFriendRequest, rejectFriendRequest, deleteNotification, subscribeToAllMovies, type MovieActivity } from '../lib/firestore';
 import ProfileRing, { getTier } from '../components/ProfileRing';
@@ -155,6 +156,7 @@ export default function DiscoverScreen() {
   const { user, profile } = useAuth();
   const { credits, maxCredits, isPremium, adCreditUsed, refresh, consume, refund, grantAdCredit, setPremium } = useCredits(user?.uid);
   const { loaded: adLoaded, showAd } = useRewardedAd();
+  const { loaded: interstitialLoaded, showAd: showInterstitial } = useInterstitialAd();
   const { buy, restore, loading: purchaseLoading } = useSubscription(setPremium);
   const [showPremium, setShowPremium] = useState(false);
   const [query, setQuery] = useState('');
@@ -198,6 +200,7 @@ export default function DiscoverScreen() {
   const [recLoading, setRecLoading] = useState(false);
 
   const [watched, setWatched] = useState<MovieActivity[]>([]);
+  const [toWatch, setToWatch] = useState<MovieActivity[]>([]);
   const [userProviders, setUserProviders] = useState<number[]>([]);
   const [providerList, setProviderList] = useState<StreamingProvider[]>([]);
   const [selectedProviderIds, setSelectedProviderIds] = useState<number[]>([]);
@@ -221,7 +224,7 @@ export default function DiscoverScreen() {
     if (!user?.uid) return;
     return subscribeToAllMovies(user.uid, {
       watched: setWatched,
-      toWatch: () => {},
+      toWatch: setToWatch,
       favorite: setFavorites,
     });
   }, [user?.uid]);
@@ -231,13 +234,17 @@ export default function DiscoverScreen() {
     if (!favorites.length) { setRecMovies([]); setRecTV([]); return; }
     const favs = favorites.filter(f => f.tmdbID).map(f => ({ tmdbID: f.tmdbID!, type: f.type || 'movie' }));
     if (!favs.length) return;
-    const excludeIds = watched.filter(w => w.tmdbID).map(w => w.tmdbID!);
+    const excludeIds = [
+      ...watched.filter(w => w.tmdbID).map(w => w.tmdbID!),
+      ...toWatch.filter(w => w.tmdbID).map(w => w.tmdbID!),
+      ...favorites.filter(f => f.tmdbID).map(f => f.tmdbID!),
+    ];
     setRecLoading(true);
     fetchRecommended(favs, excludeIds)
       .then(({ movies, tv }) => { setRecMovies(movies); setRecTV(tv); })
       .catch(() => {})
       .finally(() => setRecLoading(false));
-  }, [favorites, isPremium, watched]);
+  }, [favorites, isPremium, watched, toWatch]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -311,8 +318,8 @@ export default function DiscoverScreen() {
     if (!searchQuery) return;
 
     if (aiMode && !consume()) {
-      if (adLoaded && !adCreditUsed) {
-        showAd(() => {});
+      if (interstitialLoaded) {
+        showInterstitial();
       }
       if (!isPremium) {
         setShowPremium(true);
@@ -373,8 +380,8 @@ export default function DiscoverScreen() {
   const handleLoadMore = async () => {
     if (!lastQuery || loadingMore) return;
     if (aiMode && !consume()) {
-      if (adLoaded && !adCreditUsed) {
-        showAd(() => {});
+      if (interstitialLoaded) {
+        showInterstitial();
       }
       if (!isPremium) {
         setShowPremium(true);

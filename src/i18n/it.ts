@@ -256,4 +256,14 @@ export default {
 
   // Sign out
   signOutConfirm: 'Sei sicuro?',
+
+  // Forgot password
+  forgotPassword: 'Password dimenticata?',
+  resetPassword: 'Reimposta Password',
+  resetPasswordSub: 'Inserisci la tua email e ti invieremo un link per reimpostare la password.',
+  sendResetLink: 'Invia Link di Reset',
+  resetEmailSent: 'Email di reset inviata',
+  resetEmailSentBody: 'Controlla la posta per il link di reset della password. Controlla lo spam se non lo trovi.',
+  enterEmailToReset: 'Inserisci il tuo indirizzo email',
+  manageSubscription: 'Gestisci Abbonamento',
 } as const;

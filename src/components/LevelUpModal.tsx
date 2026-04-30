@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, Animated, Easing, TouchableOpacity } fro
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import ProfileRing, { TIER_META, type Tier } from './ProfileRing';
+import t from '../i18n';
 
 interface Props {
   visible: boolean;
@@ -107,7 +108,7 @@ export default function LevelUpModal({ visible, tier, onClose }: Props) {
           {/* Level up label */}
           <View style={s.levelUpBadge}>
             <Ionicons name="arrow-up" size={12} color={meta.color} />
-            <Text style={[s.levelUpText, { color: meta.color }]}>LEVEL UP!</Text>
+            <Text style={[s.levelUpText, { color: meta.color }]}>{t.levelUp}</Text>
           </View>
 
           {/* Tier ring */}
@@ -125,19 +126,19 @@ export default function LevelUpModal({ visible, tier, onClose }: Props) {
           <Animated.View style={{ transform: [{ translateY: textSlide }], opacity: textOpacity }}>
             <Text style={[s.tierName, { color: meta.color }]}>{meta.label}</Text>
             <Text style={s.tierSub}>
-              {tier === 'cinephile' ? 'You\'re becoming a true movie lover!' :
-               tier === 'critic' ? 'Your taste is refined and sharp!' :
-               tier === 'director' ? 'You\'ve reached the highest level!' :
-               'Welcome to CINELYSE!'}
+              {tier === 'cinephile' ? t.becomingMovieLover :
+               tier === 'critic' ? t.tasteRefined :
+               tier === 'director' ? t.highestLevel :
+               t.welcomeToCinelyse}
             </Text>
             <View style={[s.divider, { backgroundColor: meta.color }]} />
-            <Text style={s.tierMin}>{meta.min}+ AI searches</Text>
+            <Text style={s.tierMin}>{meta.min}+ {t.aiSearches}</Text>
           </Animated.View>
 
           {/* Continue button */}
           <Animated.View style={{ opacity: btnOpacity, width: '100%' }}>
             <TouchableOpacity style={[s.btn, { borderColor: meta.color }]} onPress={onClose} activeOpacity={0.8}>
-              <Text style={[s.btnText, { color: meta.color }]}>Continue</Text>
+              <Text style={[s.btnText, { color: meta.color }]}>{t.continue}</Text>
             </TouchableOpacity>
           </Animated.View>
         </Animated.View>
