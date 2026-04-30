@@ -986,7 +986,7 @@ const p = StyleSheet.create({
   aiStar: { fontSize: 10, color: '#e05050' },
   aiBadgeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginBottom: 14 },
-  gridContainer: { position: 'relative', overflow: 'hidden', borderRadius: 14 },
+  gridContainer: { position: 'relative', borderRadius: 14 },
   ghostGrid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 7,
     opacity: 0.55,

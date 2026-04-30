@@ -848,7 +848,7 @@ const s = StyleSheet.create({
 
 const ps = StyleSheet.create({
   wrapper: { flex: 1 },
-  gridContainer: { position: 'relative', overflow: 'hidden', borderRadius: 14 },
+  gridContainer: { position: 'relative', borderRadius: 14, minHeight: 300 },
 
   overlay: {
     position: 'absolute', inset: 0, backgroundColor: 'rgba(13,2,4,0.80)',

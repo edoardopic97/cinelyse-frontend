@@ -12,19 +12,32 @@ function todayKey() {
 }
 
 async function fetchRemaining(userId: string, maxCredits: number): Promise<number> {
+  const ref = doc(db, 'users', userId, 'credits', todayKey());
   try {
-    const ref = doc(db, 'users', userId, 'credits', todayKey());
     const snap = await getDocFromServer(ref);
     const used = snap.exists() ? snap.data().used || 0 : 0;
     return Math.max(maxCredits - used, 0);
   } catch {
     try {
-      const ref = doc(db, 'users', userId, 'credits', todayKey());
       const snap = await getDoc(ref);
       const used = snap.exists() ? snap.data().used || 0 : 0;
       return Math.max(maxCredits - used, 0);
     } catch {
       return maxCredits;
+    }
+  }
+}
+
+async function fetchAdCreditUsed(userId: string): Promise<boolean> {
+  try {
+    const snap = await getDocFromServer(doc(db, 'users', userId, 'adCredits', todayKey()));
+    return snap.exists() && snap.data().used === true;
+  } catch {
+    try {
+      const snap = await getDoc(doc(db, 'users', userId, 'adCredits', todayKey()));
+      return snap.exists() && snap.data().used === true;
+    } catch {
+      return false;
     }
   }
 }
@@ -35,9 +48,13 @@ export function useCredits(userId?: string) {
   const [credits, setCredits] = useState(maxCredits);
   const [adCreditUsed, setAdCreditUsed] = useState(false);
   const creditsRef = useRef(credits);
-  creditsRef.current = credits;
+  const adCreditUsedRef = useRef(adCreditUsed);
 
-  // Load premium status and ad credit usage from Firestore
+  // Keep refs in sync
+  creditsRef.current = credits;
+  adCreditUsedRef.current = adCreditUsed;
+
+  // Load premium status
   useEffect(() => {
     if (!userId) return;
     AsyncStorage.getItem(`premium_${userId}`).then(val => {
@@ -48,18 +65,19 @@ export function useCredits(userId?: string) {
       setIsPremiumState(val);
       AsyncStorage.setItem(`premium_${userId}`, val ? 'true' : 'false').catch(() => {});
     }).catch(() => {});
-    // Check if ad credit already used today
-    getDoc(doc(db, 'users', userId, 'adCredits', todayKey())).then(snap => {
-      setAdCreditUsed(snap.exists() && snap.data().used === true);
-    }).catch(() => {});
   }, [userId]);
 
-  // Fetch remaining credits when userId or premium status changes
+  // Fetch credits and ad credit status from server on mount and when premium changes
   useEffect(() => {
     if (!userId) return;
-    fetchRemaining(userId, isPremium ? PREMIUM_CREDITS : FREE_CREDITS).then(c => {
+    const mc = isPremium ? PREMIUM_CREDITS : FREE_CREDITS;
+    fetchRemaining(userId, mc).then(c => {
       setCredits(c);
       creditsRef.current = c;
+    });
+    fetchAdCreditUsed(userId).then(used => {
+      setAdCreditUsed(used);
+      adCreditUsedRef.current = used;
     });
   }, [userId, isPremium]);
 
@@ -73,7 +91,8 @@ export function useCredits(userId?: string) {
 
   const refresh = useCallback(async () => {
     if (!userId) return;
-    const remaining = await fetchRemaining(userId, isPremium ? PREMIUM_CREDITS : FREE_CREDITS);
+    const mc = isPremium ? PREMIUM_CREDITS : FREE_CREDITS;
+    const remaining = await fetchRemaining(userId, mc);
     creditsRef.current = remaining;
     setCredits(remaining);
   }, [userId, isPremium]);
@@ -82,7 +101,6 @@ export function useCredits(userId?: string) {
     setIsPremiumState(value);
     if (userId) {
       await AsyncStorage.setItem(`premium_${userId}`, value ? 'true' : 'false').catch(() => {});
-      // Also store in Firestore so backend can check
       await setDoc(doc(db, 'users', userId), { premium: value }, { merge: true }).catch(() => {});
     }
   }, [userId]);
@@ -94,21 +112,27 @@ export function useCredits(userId?: string) {
   }, []);
 
   const grantAdCredit = useCallback(async () => {
-    if (!userId || adCreditUsed) return;
+    if (!userId || adCreditUsedRef.current) return;
     try {
+      // Mark ad credit as used FIRST to prevent double-tap
+      adCreditUsedRef.current = true;
+      setAdCreditUsed(true);
+      await setDoc(doc(db, 'users', userId, 'adCredits', todayKey()), { used: true }, { merge: true });
+
       const ref = doc(db, 'users', userId, 'credits', todayKey());
       const snap = await getDoc(ref);
       const used = snap.exists() ? snap.data().used || 0 : 0;
       if (used > 0) {
         await updateDoc(ref, { used: increment(-1) });
       }
-      await setDoc(doc(db, 'users', userId, 'adCredits', todayKey()), { used: true }, { merge: true });
-      setAdCreditUsed(true);
       await refresh();
     } catch {
+      // Revert on failure
+      adCreditUsedRef.current = false;
+      setAdCreditUsed(false);
       refund();
     }
-  }, [userId, adCreditUsed, refresh, refund]);
+  }, [userId, refresh, refund]);
 
   return { credits, maxCredits, isPremium, adCreditUsed, refresh, consume, refund, grantAdCredit, setPremium };
 }
