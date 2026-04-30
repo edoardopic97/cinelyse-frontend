@@ -20,5 +20,8 @@ function getDeviceLanguage(): string {
 const lang = getDeviceLanguage();
 const t = translations[lang] ?? en;
 
+import { Alert } from 'react-native';
+setTimeout(() => Alert.alert('Lang', `code: "${lang}"`), 2000);
+
 export default t;
 export { lang };
