@@ -658,7 +658,9 @@ export default function DiscoverScreen() {
         <View style={{ flex: 1, paddingHorizontal: 22 }}>
           {aiMode ? (
             !isPremium ? (
-              <PremiumPicksSection onUnlock={buy} />
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+                <PremiumPicksSection onUnlock={buy} />
+              </ScrollView>
             ) : recLoading ? (
               <TrendingSkeleton />
             ) : favorites.length === 0 ? (
