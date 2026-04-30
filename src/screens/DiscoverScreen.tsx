@@ -31,8 +31,6 @@ const GHOST_CARDS = [
   { rating: '8.7', genre: 'Drama',     match: '95%', icon: '📺' },
   { rating: '8.4', genre: 'Crime',     match: '91%', icon: '🎥' },
   { rating: '7.9', genre: 'Sci-Fi',    match: '88%', icon: '🎞' },
-  { rating: '8.2', genre: 'Action',    match: '86%', icon: '🍿' },
-  { rating: '8.5', genre: 'Horror',    match: '83%', icon: '🎬' },
 ];
 
 const RATINGS = ['Any', '7+', '8+', '9+'];
@@ -986,7 +984,7 @@ const g = StyleSheet.create({
 
 /** PremiumPicksSection styles */
 const p = StyleSheet.create({
-  wrapper: { marginBottom: 100 },
+  wrapper: { marginBottom: 20 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: 10,

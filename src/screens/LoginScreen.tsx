@@ -242,12 +242,14 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={s.checkboxRow} onPress={() => setMarketingOptIn(!marketingOptIn)} activeOpacity={0.7}>
-            <View style={[s.checkbox, marketingOptIn && s.checkboxActive]}>
-              {marketingOptIn && <Ionicons name="checkmark" size={14} color={colors.white} />}
-            </View>
-            <Text style={s.checkboxText}>{t.marketingOptIn}</Text>
-          </TouchableOpacity>
+          {isSignUp && (
+            <TouchableOpacity style={s.checkboxRow} onPress={() => setMarketingOptIn(!marketingOptIn)} activeOpacity={0.7}>
+              <View style={[s.checkbox, marketingOptIn && s.checkboxActive]}>
+                {marketingOptIn && <Ionicons name="checkmark" size={14} color={colors.white} />}
+              </View>
+              <Text style={s.checkboxText}>{t.marketingOptIn}</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity onPress={() => { setIsSignUp(!isSignUp); setConfirmPassword(''); }} style={s.toggle}>
             <Text style={s.toggleText}>
