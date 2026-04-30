@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
+import t from '../i18n';
 
 interface Props {
   visible: boolean;
@@ -19,12 +20,12 @@ interface Props {
 }
 
 const PERKS = [
-  { icon: 'flash', color: colors.gold, title: '15 AI Credits / Day', sub: 'Up from 3 — search 5x more with AI' },
-  { icon: 'ban', color: '#60a5fa', title: 'Ad-Free Experience', sub: 'No video ads — uninterrupted discovery' },
-  { icon: 'heart', color: '#ff6b6b', title: 'Personalized Picks', sub: 'Recommendations based on your taste' },
-  { icon: 'bar-chart', color: '#a78bfa', title: 'Profile Stats', sub: 'Genre breakdown, ratings & activity insights' },
-  { icon: 'infinite', color: '#4ade80', title: 'Unlimited Title Search', sub: 'Search by title with no daily limits' },
-  { icon: 'star', color: colors.gold, title: 'Early Features', sub: 'Be the first to try new features' },
+  { icon: 'flash', color: colors.gold, title: t.perk15Credits, sub: t.perk15CreditsSub },
+  { icon: 'ban', color: '#60a5fa', title: t.perkAdFree, sub: t.perkAdFreeSub },
+  { icon: 'heart', color: '#ff6b6b', title: t.perkPersonalized, sub: t.perkPersonalizedSub },
+  { icon: 'bar-chart', color: '#a78bfa', title: t.perkStats, sub: t.perkStatsSub },
+  { icon: 'infinite', color: '#4ade80', title: t.perkUnlimited, sub: t.perkUnlimitedSub },
+  { icon: 'star', color: colors.gold, title: t.perkEarly, sub: t.perkEarlySub },
 ];
 
 export default function PremiumModal({ visible, onClose, onUpgrade, onRestore, onDowngrade, isPremium, creditsLeft, purchaseLoading }: Props) {
@@ -50,26 +51,26 @@ export default function PremiumModal({ visible, onClose, onUpgrade, onRestore, o
 
               {isPremium ? (
                 <>
-                  <Text style={s.title}>CINE<Text style={s.titleAccent}>LYSE</Text> Premium</Text>
+                  <Text style={s.title}>CINE<Text style={s.titleAccent}>LYSE</Text> {t.premium}</Text>
                   <View style={s.activeBadge}>
                     <Ionicons name="checkmark-circle" size={14} color="#4ade80" />
-                    <Text style={s.activeBadgeText}>Active</Text>
+                    <Text style={s.activeBadgeText}>{t.premiumActive}</Text>
                   </View>
                   <Text style={s.subtitle}>
-                    You have full access to all premium features
+                    {t.premiumFullAccess}
                   </Text>
                 </>
               ) : (
                 <>
-                  <Text style={s.title}>Upgrade to{'\n'}CINE<Text style={s.titleAccent}>LYSE</Text> Premium</Text>
+                  <Text style={s.title}>{t.upgradeTo}{'\n'}CINE<Text style={s.titleAccent}>LYSE</Text> {t.premium}</Text>
                   {creditsLeft === 0 && (
                     <View style={s.outBadge}>
                       <Ionicons name="alert-circle" size={14} color={colors.red} />
-                      <Text style={s.outBadgeText}>You've used all your free credits today</Text>
+                      <Text style={s.outBadgeText}>{t.usedAllCredits}</Text>
                     </View>
                   )}
                   <Text style={s.subtitle}>
-                    Unlock the full power of AI-driven movie discovery
+                    {t.unlockAiPower}
                   </Text>
                 </>
               )}
@@ -79,9 +80,9 @@ export default function PremiumModal({ visible, onClose, onUpgrade, onRestore, o
             {!isPremium && (
               <View style={s.comparison}>
                 <View style={s.planCard}>
-                  <Text style={s.planLabel}>FREE</Text>
+                  <Text style={s.planLabel}>{t.free}</Text>
                   <Text style={s.planCredits}>3</Text>
-                  <Text style={s.planUnit}>credits/day</Text>
+                  <Text style={s.planUnit}>{t.creditsPerDay}</Text>
                 </View>
                 <View style={s.planArrow}>
                   <Ionicons name="arrow-forward" size={20} color={colors.red} />
@@ -89,14 +90,14 @@ export default function PremiumModal({ visible, onClose, onUpgrade, onRestore, o
                 <View style={[s.planCard, s.planCardPremium]}>
                   <Text style={[s.planLabel, { color: colors.gold }]}>PREMIUM</Text>
                   <Text style={[s.planCredits, { color: colors.gold }]}>15</Text>
-                  <Text style={[s.planUnit, { color: 'rgba(245,197,24,0.6)' }]}>credits/day</Text>
+                  <Text style={[s.planUnit, { color: 'rgba(245,197,24,0.6)' }]}>{t.creditsPerDay}</Text>
                 </View>
               </View>
             )}
 
             {/* Perks */}
             <View style={s.perksSection}>
-              <Text style={s.perksTitle}>{isPremium ? 'Your Premium Perks' : 'Everything in Premium'}</Text>
+              <Text style={s.perksTitle}>{isPremium ? t.yourPremiumPerks : t.everythingInPremium}</Text>
               {PERKS.map((perk, i) => (
                 <View key={i} style={s.perkRow}>
                   <View style={[s.perkIcon, { backgroundColor: `${perk.color}15` }]}>
@@ -116,27 +117,27 @@ export default function PremiumModal({ visible, onClose, onUpgrade, onRestore, o
               <>
                 <TouchableOpacity style={s.deactivateBtn} onPress={onDowngrade} activeOpacity={0.85}>
                   <Ionicons name="close-circle-outline" size={16} color={colors.muted} />
-                  <Text style={s.deactivateText}>Deactivate Premium</Text>
+                  <Text style={s.deactivateText}>{t.deactivatePremium}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={s.skipBtn} onPress={onClose}>
-                  <Text style={s.skipText}>Close</Text>
+                  <Text style={s.skipText}>{t.close}</Text>
                 </TouchableOpacity>
               </>
             ) : (
               <>
                 <TouchableOpacity style={s.ctaBtn} onPress={onUpgrade} disabled={purchaseLoading} activeOpacity={0.85}>
                   <LinearGradient colors={['#c0392b', '#e74c3c', '#c0392b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.ctaGradient}>
-                    {purchaseLoading ? <ActivityIndicator color="#fff" size="small" /> : <><Text style={s.ctaStar}>✦</Text><Text style={s.ctaText}>Upgrade to Premium</Text></>}
+                    {purchaseLoading ? <ActivityIndicator color="#fff" size="small" /> : <><Text style={s.ctaStar}>✦</Text><Text style={s.ctaText}>{t.upgradeToPremium}</Text></>}
                   </LinearGradient>
                 </TouchableOpacity>
-                <Text style={s.ctaSub}>Cancel anytime · No commitment</Text>
+                <Text style={s.ctaSub}>{t.cancelAnytime}</Text>
                 {onRestore && (
                   <TouchableOpacity style={s.skipBtn} onPress={onRestore} disabled={purchaseLoading}>
-                    <Text style={s.skipText}>Restore purchase</Text>
+                    <Text style={s.skipText}>{t.restorePurchase}</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity style={s.skipBtn} onPress={onClose}>
-                  <Text style={s.skipText}>Maybe later</Text>
+                  <Text style={s.skipText}>{t.maybeLater}</Text>
                 </TouchableOpacity>
               </>
             )}
