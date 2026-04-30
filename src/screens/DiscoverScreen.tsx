@@ -525,7 +525,7 @@ export default function DiscoverScreen() {
                 </LinearGradient>
               </ProfileRing>
               <View>
-                <Text style={s.topWelcome}>WELCOME BACK</Text>
+                <Text style={s.topWelcome}>{t.welcomeBack}</Text>
                 <Text style={s.topName} numberOfLines={1}>{displayName}</Text>
               </View>
             </View>
@@ -556,13 +556,13 @@ export default function DiscoverScreen() {
         <View style={s.fixedContent}>
           {/* Hero */}
           <View style={s.heroSection}>
-            <Text style={s.heroLabel}>🎬 Discover</Text>
-            <Text style={s.heroTitle}>Find Your Next</Text>
-            <Text style={s.heroAccent}>Favorite Show</Text>
+            <Text style={s.heroLabel}>{t.discover}</Text>
+            <Text style={s.heroTitle}>{t.findYourNext}</Text>
+            <Text style={s.heroAccent}>{t.favoriteShow}</Text>
             <Text style={s.heroSub}>
               {aiMode
-                ? 'Describe any mood, genre, or vibe — our AI finds the perfect match for you.'
-                : "Search by movie or TV show title to find what you're looking for."}
+                ? t.aiSearchSub
+                : t.titleSearchSub}
             </Text>
           </View>
 
@@ -571,7 +571,7 @@ export default function DiscoverScreen() {
             <View style={[s.aiToggleTrack, aiMode && s.aiToggleTrackActive]}>
               <View style={[s.aiToggleThumb, aiMode && s.aiToggleThumbActive]} />
             </View>
-            <Text style={[s.aiToggleLabel, aiMode && s.aiToggleLabelActive]}>{aiMode ? 'AI Search' : 'Title Search'}</Text>
+            <Text style={[s.aiToggleLabel, aiMode && s.aiToggleLabelActive]}>{aiMode ? t.aiSearch : t.titleSearch}</Text>
           </TouchableOpacity>
 
           {/* Search */}
@@ -581,7 +581,7 @@ export default function DiscoverScreen() {
               <TextInput
                 ref={inputRef}
                 style={s.input}
-                placeholder={aiMode ? 'Try "dark thriller" or "90s"' : 'Try "The Godfather" or "Seven"'}
+                placeholder={aiMode ? t.aiPlaceholder : t.titlePlaceholder}
                 placeholderTextColor={'rgba(255,255,255,0.35)'}
                 value={query}
                 onChangeText={setQuery}
@@ -606,8 +606,8 @@ export default function DiscoverScreen() {
               <Ionicons name={credits === 0 ? 'alert-circle' : 'flash'} size={16} color={credits === 0 ? colors.red : colors.gold} />
               <Text style={[s.creditBannerText, credits === 0 && { color: colors.red }]}>
                 {credits === 0
-                  ? `No AI credits left · Resets in ${getResetTime()}`
-                  : `${credits}/${maxCredits} credits · Resets in ${getResetTime()}`}
+                  ? `${t.noCreditsLeft} · ${t.creditsResetIn} ${getResetTime()}`
+                  : `${credits}/${maxCredits} ${t.credits} · ${t.creditsResetIn} ${getResetTime()}`}
               </Text>
               {!adCreditUsed && (
                 <TouchableOpacity
@@ -616,7 +616,7 @@ export default function DiscoverScreen() {
                   disabled={!adLoaded}
                 >
                   <Ionicons name="play-circle" size={14} color={colors.white} />
-                  <Text style={s.watchAdText}>+1 Free</Text>
+                  <Text style={s.watchAdText}>{t.plusOneFree}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -624,9 +624,9 @@ export default function DiscoverScreen() {
 
           {/* Filters */}
           <View style={s.filterRow}>
-            <FilterPill label="All" value="all" />
-            <FilterPill label="Movies" value="movie" />
-            <FilterPill label="TV Series" value="tv" />
+            <FilterPill label={t.all} value="all" />
+            <FilterPill label={t.movies} value="movie" />
+            <FilterPill label={t.tvSeries} value="tv" />
             {aiMode && <ProviderDropdown />}
           </View>
 
@@ -658,14 +658,14 @@ export default function DiscoverScreen() {
             ) : favorites.length === 0 ? (
               <View style={s.recEmpty}>
                 <Ionicons name="heart-outline" size={40} color="rgba(255,255,255,0.1)" />
-                <Text style={s.recEmptyTitle}>No Recommendations Yet</Text>
-                <Text style={s.recEmptySub}>Start adding movies to your favorites to get personalized suggestions here.</Text>
+                <Text style={s.recEmptyTitle}>{t.noRecsYet}</Text>
+                <Text style={s.recEmptySub}>{t.noRecsSub}</Text>
               </View>
             ) : (recMovies.length === 0 && recTV.length === 0) ? (
               <View style={s.recEmpty}>
                 <Ionicons name="sparkles-outline" size={40} color="rgba(255,255,255,0.1)" />
-                <Text style={s.recEmptyTitle}>No Recommendations Found</Text>
-                <Text style={s.recEmptySub}>Add more favorites to improve your suggestions.</Text>
+                <Text style={s.recEmptyTitle}>{t.noRecsFound}</Text>
+                <Text style={s.recEmptySub}>{t.noRecsFoundSub}</Text>
               </View>
             ) : (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
@@ -743,7 +743,7 @@ export default function DiscoverScreen() {
               <TouchableOpacity onPress={() => setShowNotifs(false)}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
-              <Text style={s.notifTitle}>Notifications</Text>
+              <Text style={s.notifTitle}>{t.notifications}</Text>
               <View style={{ width: 24 }} />
             </View>
             <FlatList
@@ -753,8 +753,8 @@ export default function DiscoverScreen() {
               ListEmptyComponent={
                 <View style={s.notifEmpty}>
                   <Ionicons name="notifications-off-outline" size={40} color="rgba(255,255,255,0.1)" />
-                  <Text style={s.notifEmptyText}>No notifications yet</Text>
-                  <Text style={s.notifEmptySub}>Friend requests, acceptances and updates will appear here.</Text>
+                  <Text style={s.notifEmptyText}>{t.noNotifications}</Text>
+                  <Text style={s.notifEmptySub}>{t.notificationsSub}</Text>
                 </View>
               }
               renderItem={({ item }) => (
@@ -881,14 +881,14 @@ export default function DiscoverScreen() {
       {loading ? (
         <View style={s.loadingWrap}>
           <ActivityIndicator size="large" color={colors.red} />
-          <Text style={s.loadingText}>{aiMode ? '✦ AI is finding your movies…' : 'Searching…'}</Text>
+          <Text style={s.loadingText}>{aiMode ? t.aiFinding : t.searching}</Text>
         </View>
       ) : error ? (
         <View style={s.errorWrap}>
           <Ionicons name="alert-circle" size={20} color="#ff6b6b" />
           <Text style={s.errorText}>{error}</Text>
           <TouchableOpacity onPress={() => { setError(null); setHasSearched(false); }}>
-            <Text style={{ color: colors.red, fontWeight: '700', fontSize: 13, marginTop: 8 }}>Try Again</Text>
+            <Text style={{ color: colors.red, fontWeight: '700', fontSize: 13, marginTop: 8 }}>{t.tryAgain}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -904,9 +904,9 @@ export default function DiscoverScreen() {
           ListEmptyComponent={
             <View style={s.emptyWrap}>
               <Ionicons name="search-outline" size={48} color={colors.subtle} />
-              <Text style={s.emptyText}>No results found. Try a different search.</Text>
+              <Text style={s.emptyText}>{t.noResults}</Text>
               <TouchableOpacity style={s.retryBtn} onPress={() => setHasSearched(false)}>
-                <Text style={s.retryText}>New Search</Text>
+                <Text style={s.retryText}>{t.newSearch}</Text>
               </TouchableOpacity>
             </View>
           }
@@ -915,7 +915,7 @@ export default function DiscoverScreen() {
               <TouchableOpacity style={s.loadMoreBtn} onPress={handleLoadMore} disabled={loadingMore} activeOpacity={0.8}>
                 {loadingMore
                   ? <ActivityIndicator color={colors.white} size="small" />
-                  : <><Text style={s.loadMoreAi}>✦</Text><Text style={s.loadMoreText}>Load More</Text><Text style={s.loadMoreCost}>+1</Text></>
+                  : <><Text style={s.loadMoreAi}>✦</Text><Text style={s.loadMoreText}>{t.loadMore}</Text><Text style={s.loadMoreCost}>+1</Text></>
                 }
               </TouchableOpacity>
             ) : null

@@ -11,6 +11,7 @@ import MovieActivityButtons, { type MovieData } from './MovieActivityButtons';
 import SimilarMovies from './SimilarMovies';
 import WatchProviders from './WatchProviders';
 import TrailerButton from './TrailerButton';
+import t from '../i18n';
 
 interface Props {
   movie: MovieActivity | null;
@@ -135,7 +136,7 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false, al
             {loadingDetails && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <ActivityIndicator size="small" color={colors.red} />
-                <Text style={{ color: colors.muted, fontSize: 13 }}>Loading details…</Text>
+                <Text style={{ color: colors.muted, fontSize: 13 }}>{t.loadingDetails}</Text>
               </View>
             )}
             {m.type === 'series' && <View style={s.tvBadge}><Text style={s.tvText}>TV SERIES</Text></View>}
@@ -159,19 +160,19 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false, al
             {genres.length > 0 && <View style={s.genreRow}>{genres.map((g, i) => { const c = getGenreColor(g); return <View key={i} style={[s.genrePill, { backgroundColor: c.bg, borderColor: c.border }]}><Text style={[s.genreText, { color: c.text }]}>{g}</Text></View>; })}</View>}
             {m.plot ? <Text style={s.plot}>{m.plot}</Text> : null}
             <View style={s.detailGrid}>
-              {m.director ? <View style={s.detailItem}><Text style={s.detailLabel}>Director</Text><Text style={s.detailVal}>{m.director.split(',')[0]}</Text></View> : null}
-              {m.language ? <View style={s.detailItem}><Text style={s.detailLabel}>Language</Text><Text style={s.detailVal}>{m.language.split(',')[0]}</Text></View> : null}
-              {m.country ? <View style={s.detailItem}><Text style={s.detailLabel}>Country</Text><Text style={s.detailVal}>{m.country.split(',')[0]}</Text></View> : null}
+              {m.director ? <View style={s.detailItem}><Text style={s.detailLabel}>{t.director}</Text><Text style={s.detailVal}>{m.director.split(',')[0]}</Text></View> : null}
+              {m.language ? <View style={s.detailItem}><Text style={s.detailLabel}>{t.language}</Text><Text style={s.detailVal}>{m.language.split(',')[0]}</Text></View> : null}
+              {m.country ? <View style={s.detailItem}><Text style={s.detailLabel}>{t.country}</Text><Text style={s.detailVal}>{m.country.split(',')[0]}</Text></View> : null}
             </View>
             {m.actors ? (
               <View style={{ marginBottom: 16 }}>
-                <Text style={s.detailLabel}>Cast</Text>
+                <Text style={s.detailLabel}>{t.cast}</Text>
                 <View style={s.castRow}>{m.actors.split(',').map((a, i) => <View key={i} style={s.castPill}><Text style={s.castText}>{a.trim()}</Text></View>)}</View>
               </View>
             ) : null}
             {m.rating && m.rating > 0 && (
               <View style={s.yourRating}>
-                <Text style={s.detailLabel}>Your Rating</Text>
+                <Text style={s.detailLabel}>{t.yourRating}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                   <Ionicons name="star" size={18} color={colors.gold} />
                   <Text style={{ color: colors.gold, fontSize: 18, fontWeight: '800' }}>{m.rating}/10</Text>
@@ -183,7 +184,7 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false, al
 
             {m.tmdbID && (
               <TouchableOpacity style={s.imdbLink} onPress={() => Linking.openURL(`https://www.themoviedb.org/${m.type === 'series' ? 'tv' : 'movie'}/${m.tmdbID}`)}>
-                <Ionicons name="open-outline" size={14} color={colors.gold} /><Text style={s.imdbText}>View on TMDB</Text>
+                <Ionicons name="open-outline" size={14} color={colors.gold} /><Text style={s.imdbText}>{t.viewOnTmdb}</Text>
               </TouchableOpacity>
             )}
 
@@ -192,7 +193,7 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false, al
             {/* Activity buttons — always show for logged-in user */}
             {user?.uid && (
               <View style={s.activitySection}>
-                <Text style={s.detailLabel}>{readOnly ? 'Your Activity' : 'Actions'}</Text>
+                <Text style={s.detailLabel}>{readOnly ? t.yourActivity : t.actions}</Text>
                 <MovieActivityButtons movie={{
                   movieId: m.movieId,
                   title: m.title,
@@ -227,43 +228,43 @@ export default function ProfileMovieModal({ movie, onClose, readOnly = false, al
                       onClose();
                     }}>
                       <Ionicons name="eye" size={16} color="#fff" />
-                      <Text style={s.watchedBtnText}>Mark as Watched</Text>
+                      <Text style={s.watchedBtnText}>{t.markAsWatched}</Text>
                     </TouchableOpacity>
                   </>
                 )}
-                <Text style={[s.detailLabel, activeMovie.toWatch && !activeMovie.watched && { marginTop: 16 }]}>Remove From</Text>
+                <Text style={[s.detailLabel, activeMovie.toWatch && !activeMovie.watched && { marginTop: 16 }]}>{t.removeFrom}</Text>
                 <View style={s.removeRow}>
                   {activeMovie.watched && (
                     <TouchableOpacity style={s.removeBtn} disabled={removing} onPress={() => {
-                      Alert.alert('Remove', 'Remove from Watched?', [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Remove', style: 'destructive', onPress: async () => { setRemoving(true); await removeMovieFromWatched(user.uid, activeMovie.movieId).catch(() => {}); setRemoving(false); onClose(); }},
+                      Alert.alert(t.remove, t.removeFromWatched, [
+                        { text: t.cancel, style: 'cancel' },
+                        { text: t.remove, style: 'destructive', onPress: async () => { setRemoving(true); await removeMovieFromWatched(user.uid, activeMovie.movieId).catch(() => {}); setRemoving(false); onClose(); }},
                       ]);
                     }}>
                       <Ionicons name="eye-off-outline" size={14} color={colors.red} />
-                      <Text style={s.removeBtnText}>Watched</Text>
+                      <Text style={s.removeBtnText}>{t.watched}</Text>
                     </TouchableOpacity>
                   )}
                   {activeMovie.toWatch && (
                     <TouchableOpacity style={s.removeBtn} disabled={removing} onPress={() => {
-                      Alert.alert('Remove', 'Remove from Watchlist?', [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Remove', style: 'destructive', onPress: async () => { setRemoving(true); await removeMovieFromToWatch(user.uid, activeMovie.movieId).catch(() => {}); setRemoving(false); onClose(); }},
+                      Alert.alert(t.remove, t.removeFromWatchlist, [
+                        { text: t.cancel, style: 'cancel' },
+                        { text: t.remove, style: 'destructive', onPress: async () => { setRemoving(true); await removeMovieFromToWatch(user.uid, activeMovie.movieId).catch(() => {}); setRemoving(false); onClose(); }},
                       ]);
                     }}>
                       <Ionicons name="bookmark-outline" size={14} color={colors.red} />
-                      <Text style={s.removeBtnText}>Watchlist</Text>
+                      <Text style={s.removeBtnText}>{t.watchlist}</Text>
                     </TouchableOpacity>
                   )}
                   {activeMovie.favorite && (
                     <TouchableOpacity style={s.removeBtn} disabled={removing} onPress={() => {
-                      Alert.alert('Remove', 'Remove from Favorites?', [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Remove', style: 'destructive', onPress: async () => { setRemoving(true); await removeMovieFromFavorites(user.uid, activeMovie.movieId).catch(() => {}); setRemoving(false); onClose(); }},
+                      Alert.alert(t.remove, t.removeFromFavorites, [
+                        { text: t.cancel, style: 'cancel' },
+                        { text: t.remove, style: 'destructive', onPress: async () => { setRemoving(true); await removeMovieFromFavorites(user.uid, activeMovie.movieId).catch(() => {}); setRemoving(false); onClose(); }},
                       ]);
                     }}>
                       <Ionicons name="heart-dislike-outline" size={14} color={colors.red} />
-                      <Text style={s.removeBtnText}>Favorites</Text>
+                      <Text style={s.removeBtnText}>{t.favs}</Text>
                     </TouchableOpacity>
                   )}
                 </View>

@@ -9,6 +9,7 @@ import FriendsScreen from '../screens/FriendsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import { useAuth } from '../contexts/AuthContext';
 import { subscribeToFriendRequests } from '../lib/firestore';
+import t from '../i18n';
 
 const Tab = createBottomTabNavigator();
 
@@ -47,6 +48,7 @@ export default function TabNavigator() {
         name="Home"
         component={HomeScreen}
         options={{
+          tabBarLabel: t.navHome,
           tabBarIcon: ({ color }) => <Ionicons name="home" size={26} color={color} />,
         }}
       />
@@ -54,6 +56,7 @@ export default function TabNavigator() {
         name="Discover"
         component={DiscoverScreen}
         options={{
+          tabBarLabel: t.navDiscover,
           tabBarIcon: ({ color }) => <Ionicons name="search" size={26} color={color} />,
         }}
       />
@@ -61,6 +64,7 @@ export default function TabNavigator() {
         name="Friends"
         component={FriendsScreen}
         options={{
+          tabBarLabel: t.navFriends,
           tabBarIcon: ({ color }) => <Ionicons name="people" size={26} color={color} />,
           tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.red, fontSize: 10, fontWeight: '700' },
@@ -70,6 +74,7 @@ export default function TabNavigator() {
         name="Profile"
         component={ProfileScreen}
         options={{
+          tabBarLabel: t.navProfile,
           tabBarIcon: ({ color }) => <Ionicons name="person" size={26} color={color} />,
         }}
       />
