@@ -11,6 +11,7 @@ import { colors } from '../theme/colors';
 import { searchMovies, fetchTrending, fetchRecommended, fetchAvailableProviders, type MovieResult, type StreamingProvider } from '../api/client';
 import { getFriendlyError } from '../utils/errorMessages';
 import { useAuth } from '../contexts/AuthContext';
+import t from '../i18n';
 import { useCredits } from '../hooks/useCredits';
 import { useRewardedAd } from '../hooks/useRewardedAd';
 import { useInterstitialAd } from '../hooks/useInterstitialAd';
