@@ -73,9 +73,13 @@ export function useSubscription(onPremiumChange: (val: boolean) => Promise<void>
       const product = products[0];
       const offerToken = product.subscriptionOfferDetailsAndroid?.[0]?.offerToken;
       await RNIap.requestPurchase({
-        skus: [SKU],
+        request: {
+          android: {
+            skus: [SKU],
+            ...(offerToken && { subscriptionOffers: [{ sku: SKU, offerToken }] }),
+          },
+        },
         type: 'subs',
-        ...(offerToken && { subscriptionOffers: [{ sku: SKU, offerToken }] }),
       });
     } catch (e: any) {
       Alert.alert('Purchase error', e?.message || 'Unknown error');
