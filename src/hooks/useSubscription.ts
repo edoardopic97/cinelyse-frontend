@@ -3,7 +3,6 @@ import { Alert, Platform } from 'react-native';
 
 const SKU = 'cinelyse_premium_monthly';
 
-// Static require - Metro needs this at bundle time
 let RNIap: any = null;
 try {
   RNIap = require('react-native-iap');
@@ -65,16 +64,17 @@ export function useSubscription(onPremiumChange: (val: boolean) => Promise<void>
     }
     setLoading(true);
     try {
-      const subs = await RNIap.getSubscriptions({ skus: [SKU] });
-      if (!subs.length) {
+      const products = await RNIap.fetchProducts({ skus: [SKU], type: 'subs' });
+      if (!products.length) {
         Alert.alert('Not available', 'Subscription product not found.');
         setLoading(false);
         return;
       }
-      const sub = subs[0];
-      const offerToken = sub.subscriptionOfferDetails?.[0]?.offerToken;
-      await RNIap.requestSubscription({
-        sku: SKU,
+      const product = products[0];
+      const offerToken = product.subscriptionOfferDetailsAndroid?.[0]?.offerToken;
+      await RNIap.requestPurchase({
+        skus: [SKU],
+        type: 'subs',
         ...(offerToken && { subscriptionOffers: [{ sku: SKU, offerToken }] }),
       });
     } catch (e: any) {
