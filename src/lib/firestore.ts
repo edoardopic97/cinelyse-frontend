@@ -471,18 +471,6 @@ export async function findUsersByEmails(emails: string[], excludeUid: string): P
 
 
 
-export async function incrementSearchCount(userId: string): Promise<void> {
-  const ref = doc(db, 'users', userId);
-  await setDoc(ref, { totalSearches: increment(1), updatedAt: Timestamp.now() }, { merge: true });
-  const snap = await getDoc(ref);
-  const newCount = snap.exists() ? (snap.data().totalSearches || 0) : 0;
-  const friendsSnap = await getDocs(collection(db, 'users', userId, 'friends'));
-  const updates = friendsSnap.docs.map(d =>
-    setDoc(doc(db, 'users', d.id, 'friends', userId), { totalSearches: newCount }, { merge: true })
-  );
-  await Promise.all(updates);
-}
-
 export async function getSearchCount(userId: string): Promise<number> {
   const snap = await getDoc(doc(db, 'users', userId));
   return snap.exists() ? (snap.data().totalSearches || 0) : 0;

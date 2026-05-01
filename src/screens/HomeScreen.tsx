@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { useAuth } from '../contexts/AuthContext';
-import { getEnrichedFriends, getMovieList, type MovieActivity, type FriendSummary } from '../lib/firestore';
+import { getEnrichedFriends, getAllUserMovies, type MovieActivity, type FriendSummary } from '../lib/firestore';
 import { fetchTrending, fetchMovieDetails, type MovieResult } from '../api/client';
 import MovieCard from '../components/MovieCard';
 import t from '../i18n';
@@ -178,12 +178,13 @@ export default function HomeScreen() {
         const [trending, ...friendLists] = await Promise.all([
           fetchTrending(),
           ...enrichedFriends.slice(0, 15).map(async (friend) => {
-            const [watched, favs, wl] = await Promise.all([
-              getMovieList(friend.userId, 'watched'),
-              getMovieList(friend.userId, 'favorite'),
-              getMovieList(friend.userId, 'toWatch'),
-            ]);
-            return { friend, watched, favs, wl };
+            const all = await getAllUserMovies(friend.userId);
+            return {
+              friend,
+              watched: all.filter(m => m.watched),
+              favs:    all.filter(m => m.favorite),
+              wl:      all.filter(m => m.toWatch),
+            };
           }),
         ]);
 
