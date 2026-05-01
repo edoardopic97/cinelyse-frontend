@@ -380,7 +380,7 @@ export default function ProfileScreen() {
                   <Text style={[s.tierLabel, { color: TIER_META[getTier(searchCount)].color }]}>{TIER_META[getTier(searchCount)].label}</Text>
                 </View>
                 <Text style={s.tierDesc}>
-                  {searchCount} search{searchCount !== 1 ? 'es' : ''}
+                  {searchCount} {searchCount !== 1 ? t.searches : t.search}
                   {getNextTier(getTier(searchCount)).next
                     ? ` · ${getNextTier(getTier(searchCount)).needed - searchCount} ${t.moreSearchesTo} ${TIER_META[getNextTier(getTier(searchCount)).next!].label}`
                     : ` · ${t.maxLevelReached}`}

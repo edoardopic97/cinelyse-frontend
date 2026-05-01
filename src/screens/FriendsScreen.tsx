@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Contacts from 'expo-contacts';
 import { colors } from '../theme/colors';
 import { getFriendlyError } from '../utils/errorMessages';
+import t from '../i18n';
 import { getGenreColor } from '../theme/genreColors';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -431,7 +432,7 @@ export default function FriendsScreen() {
               <View style={s.tierRow}>
                 <View style={[s.tierDot, { backgroundColor: TIER_META[getTier(friendModalSearchCount)].color }]} />
                 <Text style={[s.tierLabel, { color: TIER_META[getTier(friendModalSearchCount)].color }]}>{TIER_META[getTier(friendModalSearchCount)].label}</Text>
-                <Text style={s.tierCount}>{friendModalSearchCount} search{friendModalSearchCount !== 1 ? 'es' : ''}</Text>
+                <Text style={s.tierCount}>{friendModalSearchCount} {friendModalSearchCount !== 1 ? t.searches : t.search}</Text>
               </View>
 
               {friendStats && (
